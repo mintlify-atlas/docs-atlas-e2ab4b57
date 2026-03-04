@@ -1,0 +1,422 @@
+---
+title: "Workflow Builder"
+description: "Design and manage workflow proposals with role gates, sequential steps, and bounties"
+---
+
+## Overview
+
+The Workflow Builder is the core feature for proposers to create structured workflow proposals. Workflows are sequential task sequences with role-based access control, bounty allocation, and evidence requirements. Each workflow goes through a voting process before becoming active.
+
+**File Reference**: `frontend/app/proposer/page.tsx:172`
+
+## Key Concepts
+
+### Workflow Lifecycle
+
+Workflows progress through the following statuses:
+
+1. **pending** - Awaiting voter approval
+2. **approved** - Voted approved, ready to start when `start_at` time is reached
+3. **rejected** - Denied by voters
+4. **in_progress** - Active, improvers can claim and complete steps
+5. **completed** - All steps done, awaiting payout
+6. **paid_out** - Finalized, all bounties distributed
+7. **blocked** - Series workflow waiting for prior instance to complete
+8. **expired** - Pending > 14 days without quorum
+9. **deleted** - Removed via deletion proposal
+
+**Code Reference**: `frontend/types/workflow.ts:107`
+
+### Sequential Steps
+
+Workflow steps unlock sequentially. Completing step N makes step N+1 available. Each step has:
+
+- **Title & Description** - Clear task definition
+- **Bounty** - SFLUV token amount awarded on completion
+- **Role Assignment** - Which improver role can claim this step
+- **Work Items** - Evidence requirements (photos, text, dropdowns)
+- **Optional "Not Possible" Flag** - Allow improvers to report when a step cannot be completed
+
+**Code Reference**: `frontend/types/workflow.ts:44-64`
+
+### Roles & Credentials
+
+Each workflow defines custom roles with credential requirements. Improvers must hold the required credentials to claim steps assigned to that role.
+
+**Example**:
+```typescript
+{
+  title: "Storefront Verifier",
+  required_credentials: ["dpw_certified", "sfluv_verifier"]
+}
+```
+
+**Code Reference**: `frontend/app/proposer/page.tsx:42-46`
+
+## Creating a Workflow
+
+### Basic Information
+
+**Title** - Clear, descriptive workflow name
+
+**Description** - Outcome, stakeholders, and acceptance criteria
+
+**Recurrence** - Choose from:
+- `one_time` - Single execution
+- `daily` - Recurring daily
+- `weekly` - Recurring weekly
+- `monthly` - Recurring monthly
+
+Recurring workflows share a `series_id`. New instances are blocked until the prior one reaches `paid_out`.
+
+**Start Date & Time** - When the workflow becomes active (datetime-local input)
+
+**Code Reference**: `frontend/app/proposer/page.tsx:1263-1294`
+
+### Workflow Supervisor (Optional)
+
+Assign an approved supervisor to oversee the workflow. Supervisors can:
+- Monitor workflow progress
+- Export workflow data
+- Receive optional completion bounty
+
+**Configuration**:
+1. Enable supervisor checkbox
+2. Select from approved supervisors dropdown
+3. Optionally set supervisor bounty (SFLUV amount)
+
+**Code Reference**: `frontend/app/proposer/page.tsx:1296-1366`
+
+### Defining Roles
+
+Create one or more roles for your workflow. Each role requires:
+
+1. **Title** - Role name (e.g., "Field Verifier", "Data Analyst")
+2. **Required Credentials** - Select one or more credentials improvers must hold
+
+Available credentials are fetched from `/credentials/types` and include:
+- `dpw_certified` - DPW Certification
+- `sfluv_verifier` - SFLuv Verifier Status
+- Custom credentials created by issuers
+
+**Code Reference**: `frontend/app/proposer/page.tsx:1368-1406`
+
+### Building Steps
+
+Each step includes:
+
+#### Step Configuration
+- **Title** - Step name
+- **Description** - Detailed instructions
+- **Bounty** - Token amount (must be ≥ 0)
+- **Role Assignment** - Select which role can claim this step
+- **Allow "Not Possible"** - Checkbox to enable improvers to report uncompleted steps
+
+**Code Reference**: `frontend/app/proposer/page.tsx:100-108`
+
+#### Work Items
+
+Each step has one or more work items defining evidence requirements:
+
+**Title & Description** - What needs to be documented
+
+**Optional Checkbox** - Whether this item can be skipped
+
+**Photo Requirements**:
+- Enable photo requirement
+- Camera capture only (prevents gallery uploads)
+- Required photo count (or allow any count)
+- Aspect ratio: `square`, `vertical`, or `horizontal`
+
+**Written Response** - Require text input
+
+**Dropdown** - Multiple choice selection with:
+  - Option labels
+  - Optional follow-up text requirement per option
+  - Notification emails (receive alerts when option is selected)
+
+**Validation**: Each work item must require at least one of: photo, written response, or dropdown.
+
+**Code Reference**: `frontend/app/proposer/page.tsx:85-98`
+
+### Dropdown Options
+
+Dropdown work items support:
+
+1. **Label** - Option text displayed to improver
+2. **Requires Written Response** - Force text input when selected
+3. **Notification Emails** - List of emails to notify when selected
+
+To add notification email:
+1. Enter email in input field
+2. Press Enter or click Add
+3. Email is validated and added to list
+
+**Code Reference**: `frontend/app/proposer/page.tsx:401-425`
+
+## Template Library
+
+Save workflow configurations as templates for reuse.
+
+### Using Templates
+
+1. Click template dropdown in workflow builder
+2. Search or browse available templates
+3. Click template to apply configuration
+4. Template fills roles, steps, work items, and recurrence
+5. Manually set workflow title and description
+
+**Code Reference**: `frontend/app/proposer/page.tsx:1165-1229`
+
+### Saving Templates
+
+**From Builder**:
+1. Configure workflow fields (title/description optional for template)
+2. Enter template title (required)
+3. Enter template description (optional)
+4. Click "Save Personal Template" or "Save Default Template" (admin only)
+
+**From Existing Workflow**:
+1. Open workflow details
+2. Click "Save as Template"
+3. Enter template title and description
+4. Template is created from approved workflow structure
+
+**Code Reference**: `frontend/app/proposer/page.tsx:658-704`, `941-1078`
+
+### Template Types
+
+- **Personal Templates** - Created by proposer, visible only to creator
+- **Default Templates** - Created by admin, visible to all proposers
+
+Admins can delete any template. Proposers can only delete their own personal templates.
+
+**Code Reference**: `frontend/app/proposer/page.tsx:681`
+
+## Managing Workflows
+
+### Your Workflows Tab
+
+View all your created workflows with:
+
+- **Status Filter** - Filter by workflow status
+- **Series Grouping** - Recurring workflows grouped by `series_id`
+- **Workflow Details** - Click any workflow to view full details
+
+**Code Reference**: `frontend/app/proposer/page.tsx:1124-1128`
+
+### Workflow Actions
+
+**Delete Pending Workflow** - Remove workflows that haven't been voted on
+
+**Propose Deletion** - Create deletion proposal for approved/active workflows:
+- **Workflow Deletion** - Remove single workflow instance
+- **Series Deletion** - Remove all workflows in recurring series
+
+Deletion proposals require voter approval before execution.
+
+**Code Reference**: `frontend/app/proposer/page.tsx:836-874`
+
+## Validation Rules
+
+### Workflow Validation
+
+- Title is required
+- At least one role with title and credential
+- At least one step with title, description, bounty ≥ 0, and role assignment
+- Each step has at least one work item
+- Each work item requires photo, text, or dropdown
+- Photo items with fixed count must have count ≥ 1
+- Dropdown items need at least one option with label
+
+**Code Reference**: `frontend/app/proposer/page.tsx:545-637`
+
+### Template Validation
+
+Same as workflow validation plus:
+- Template title is required
+- Template description is optional
+
+**Code Reference**: `frontend/app/proposer/page.tsx:640-657`
+
+## Voting System
+
+Workflows require voter approval before becoming active:
+
+- **Quorum** - 50% of eligible voters must participate
+- **Countdown** - 24-hour finalization period starts at quorum
+- **Early Finalization** - If >50% of full voter body agrees before countdown
+- **Budget Check** - Approval blocked if unallocated faucet balance < one week of workflow requirement
+- **Admin Override** - Admin can force-approve (uses `admin_approve` decision)
+
+**Code Reference**: `backend/handlers/app_workflow.go` (vote logic)
+
+## Bounty Calculation
+
+Total workflow bounty includes:
+- Sum of all step bounties
+- Supervisor bounty (if enabled)
+
+The draft total is displayed in the builder interface.
+
+**Code Reference**: `frontend/app/proposer/page.tsx:217-221`
+
+## UI Components
+
+### Cards & Layouts
+
+- **Card** - Workflow builder container
+- **Tabs** - "Create Workflow" and "Your Workflows" tabs
+- **Badge** - Display draft bounty total, template count, workflow status
+
+### Input Components
+
+- **Input** - Text fields for titles, descriptions, bounties
+- **Textarea** - Multi-line descriptions
+- **Select** - Dropdowns for recurrence, roles, supervisors
+- **Checkbox** - Boolean flags (supervisor enable, optional items, allow not possible)
+- **Datetime-local** - Workflow start time picker
+
+### Interactive Components
+
+- **Button** - Submit, save, delete actions
+- **Popover** - Template search and selection
+- **Dialog** - Delete confirmation, save from workflow modal
+- **WorkflowDetailsModal** - Full workflow view with step details
+
+**Code Reference**: `frontend/app/proposer/page.tsx:6-40` (imports)
+
+## API Endpoints
+
+### Workflow Operations
+
+```typescript
+// Create workflow
+POST /proposers/workflows
+Body: WorkflowCreateRequest
+
+// List your workflows
+GET /proposers/workflows
+
+// Get workflow details
+GET /proposers/workflows/:id
+
+// Delete pending workflow
+DELETE /proposers/workflows/:id
+
+// Propose deletion
+POST /proposers/workflow-deletion-proposals
+Body: { workflow_id, target_type }
+```
+
+### Template Operations
+
+```typescript
+// List templates
+GET /proposers/workflow-templates
+
+// Save personal template
+POST /proposers/workflow-templates
+Body: WorkflowTemplateCreateRequest
+
+// Save default template (admin only)
+POST /admin/workflow-templates/default
+Body: WorkflowTemplateCreateRequest
+
+// Delete template
+DELETE /proposers/workflow-templates/:id
+```
+
+### Supporting Data
+
+```typescript
+// Get credential types
+GET /credentials/types
+
+// Get approved supervisors
+GET /supervisors/approved
+```
+
+**Code Reference**: `frontend/app/proposer/page.tsx:276-319`, `681`, `810-833`, `876-900`
+
+## Best Practices
+
+### Workflow Design
+
+1. **Clear Instructions** - Write detailed step descriptions with acceptance criteria
+2. **Appropriate Bounties** - Set fair compensation for time/effort required
+3. **Logical Sequencing** - Order steps in natural workflow progression
+4. **Evidence Balance** - Don't over-burden improvers with excessive photo/text requirements
+5. **Template Reuse** - Save well-designed workflows as templates
+
+### Role & Credential Strategy
+
+1. **Specific Roles** - Create roles matching skill requirements
+2. **Credential Gating** - Use credentials to ensure qualified improvers
+3. **Role Reuse** - Standardize role names across similar workflows
+
+### Recurring Workflows
+
+1. **Series Planning** - Plan for long-term recurring needs
+2. **Budget Awareness** - Ensure sufficient weekly budget for recurring bounties
+3. **Template First** - Save as template before creating recurring instances
+4. **Monitoring** - Track series completion and adjust as needed
+
+## Troubleshooting
+
+### Common Errors
+
+**"Every role needs a title and at least one required credential"**
+- Ensure all roles have both title and at least one credential selected
+
+**"Every step needs a title, description, role assignment, and bounty zero or greater"**
+- Check that all steps have complete configuration
+- Verify bounty is a valid number ≥ 0
+
+**"Each work item must require photo, written response, or dropdown"**
+- At least one requirement type must be enabled per work item
+
+**"Dropdown work items need at least one dropdown option"**
+- Add options to dropdown-enabled work items
+
+**"Malformed notification email on step X item Y option Z"**
+- Check email format (must be valid email address)
+- Clear pending email input before submitting
+
+### Validation Tips
+
+- Review draft total bounty before submitting
+- Use template preview to verify configuration
+- Test workflow structure with single instance before creating recurring series
+- Verify all notification emails are correct before submission
+
+## Screenshots
+
+### Workflow Builder Interface
+
+The builder displays:
+- Template library dropdown with search
+- Workflow title, description, recurrence, start date
+- Optional supervisor configuration
+- Role definitions with credential checkboxes
+- Sequential step builder with work items
+- Draft total bounty badge
+- Submit button with loading state
+
+### Your Workflows Tab
+
+Shows:
+- Status filter dropdown
+- Series-grouped workflow cards
+- Workflow status badges (pending, approved, in progress, etc.)
+- Action buttons (view details, delete, propose deletion)
+- Series indicators for recurring workflows
+
+### Template Library
+
+Features:
+- Searchable template dropdown
+- Template type badges (Default/Personal)
+- Template title and description preview
+- Delete button for owned templates
+- Apply button to load template

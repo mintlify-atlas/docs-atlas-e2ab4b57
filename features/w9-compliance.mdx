@@ -1,0 +1,618 @@
+---
+title: "W9 Compliance"
+description: "W9 tax form submission, approval, and verification process for earnings over $600"
+---
+
+## Overview
+
+The W9 Compliance system tracks user earnings from the SFLUV faucet (admin wallet) and requires W9 tax form submission when annual earnings exceed $600. This ensures compliance with IRS 1099-MISC reporting requirements.
+
+**File Reference**: `backend/handlers/w9.go:21`
+
+## Key Concepts
+
+### Earnings Threshold
+
+The system monitors payments from designated admin addresses:
+
+- **Threshold**: $600 USD equivalent in SFLUV tokens per calendar year
+- **Admin Addresses**: Configured via `PAID_ADMIN_ADDRESSES` environment variable
+- **Tracking**: Automatic via blockchain indexer (Ponder)
+
+**Code Reference**: `backend/handlers/w9.go:31-42`, `66-70`
+
+### W9 Requirement States
+
+1. **Below Threshold** - No W9 required, transactions allowed
+2. **Threshold Reached** - W9 required, marked in database, admin notified
+3. **W9 Pending** - Submitted but awaiting admin approval
+4. **W9 Approved** - Approved by admin, restriction lifted
+5. **W9 Rejected** - Rejected by admin, user must resubmit
+
+**Code Reference**: `backend/handlers/w9.go:122-163`
+
+## Transaction Flow
+
+### Pre-Transaction Compliance Check
+
+Before any transfer from faucet:
+
+1. **Check Sender** - Is transaction from admin address?
+2. **Calculate Total** - Sum all prior earnings this year
+3. **Calculate New Total** - Add proposed transaction amount
+4. **Check Threshold** - Will new total exceed $600?
+5. **Check W9 Status** - Is W9 submitted and approved?
+6. **Return Decision** - Allow or block transaction
+
+**Endpoint**: `POST /w9/check-compliance`
+
+**Code Reference**: `backend/handlers/w9.go:572-627`
+
+### Request Format
+
+```json
+{
+  "from_address": "0xfaucet...",
+  "to_address": "0xuser...",
+  "amount": "250000000000000000000"  // wei format
+}
+```
+
+**Code Reference**: `backend/handlers/w9.go:586-594`
+
+### Response Format
+
+**Allowed**:
+```json
+{
+  "allowed": true,
+  "current_total": "400000000000000000000",
+  "new_total": "650000000000000000000",
+  "limit": "600000000000000000000",
+  "year": 2026,
+  "email": "user@example.com"
+}
+```
+
+**Blocked - W9 Required**:
+```json
+{
+  "allowed": false,
+  "reason": "w9_required",
+  "w9_url": "https://wordpress.example.com/w9-form",
+  "current_total": "650000000000000000000",
+  "new_total": "900000000000000000000",
+  "limit": "600000000000000000000",
+  "year": 2026
+}
+```
+
+**Blocked - W9 Pending**:
+```json
+{
+  "allowed": false,
+  "reason": "w9_pending",
+  "email": "user@example.com"
+}
+```
+
+**Code Reference**: `backend/handlers/w9.go:137-163`
+
+### Post-Transaction Recording
+
+After successful blockchain transaction:
+
+1. **Record Transfer** - Save transaction details
+2. **Update Earnings** - Recalculate year-to-date total
+3. **Check Threshold** - Has user now crossed $600?
+4. **Mark W9 Required** - If threshold crossed
+5. **Notify Admin** - Email admin about W9 requirement
+
+**Endpoint**: `POST /w9/record-transaction`
+
+**Code Reference**: `backend/handlers/w9.go:629-662`
+
+### Request Format
+
+```json
+{
+  "from_address": "0xfaucet...",
+  "to_address": "0xuser...",
+  "amount": "250000000000000000000",
+  "hash": "0xtxhash...",
+  "timestamp": 1709582400
+}
+```
+
+**Code Reference**: `backend/handlers/w9.go:642-647`
+
+## W9 Submission
+
+### Submission Methods
+
+#### 1. Direct API Submission
+
+**Endpoint**: `POST /w9/submit`
+
+**Request**:
+```json
+{
+  "wallet_address": "0xuser...",
+  "email": "user@example.com",
+  "year": 2026
+}
+```
+
+**Response**:
+```json
+{
+  "submission": {
+    "id": 123,
+    "wallet_address": "0xuser...",
+    "email": "user@example.com",
+    "year": 2026,
+    "pending_approval": true,
+    "submitted_at": "2026-03-04T12:00:00Z"
+  }
+}
+```
+
+**Code Reference**: `backend/handlers/w9.go:299-320`
+
+#### 2. WordPress Webhook
+
+External W9 form submissions via webhook:
+
+**Endpoint**: `POST /w9/webhook`
+
+**Authentication**: Optional `X-W9-Secret` or `X-W9-Key` header matching `W9_WEBHOOK_SECRET` env var
+
+**Request (JSON)**:
+```json
+{
+  "wallet_address": "0xuser...",
+  "email": "user@example.com",
+  "year": 2026
+}
+```
+
+**Request (Form-encoded)**:
+```
+wallet=0xuser...&email=user@example.com&year=2026
+```
+
+**Code Reference**: `backend/handlers/w9.go:465-513`
+
+### Submission Validation
+
+- **Wallet Address Required** - Must be valid Berachain address
+- **Email Required** - Must be valid email format
+- **Year Optional** - Defaults to current year if not provided
+- **Duplicate Prevention** - Cannot submit if already pending or approved for same year
+
+**Code Reference**: `backend/handlers/w9.go:515-556`
+
+### Error Responses
+
+**Duplicate Pending**:
+```json
+{"error": "w9_pending"}
+```
+HTTP 409 Conflict
+
+**Already Approved**:
+```json
+{"error": "w9_approved"}
+```
+HTTP 409 Conflict
+
+**Code Reference**: `backend/handlers/w9.go:532-541`
+
+## Admin Review
+
+### Pending Submissions
+
+**Endpoint**: `GET /w9/pending`
+
+**Response**:
+```json
+{
+  "submissions": [
+    {
+      "id": 123,
+      "wallet_address": "0xuser...",
+      "email": "user@example.com",
+      "year": 2026,
+      "pending_approval": true,
+      "submitted_at": "2026-03-04T12:00:00Z",
+      "user_contact_email": "contact@example.com"
+    }
+  ]
+}
+```
+
+Includes user's contact email if available from profile.
+
+**Code Reference**: `backend/handlers/w9.go:322-361`
+
+### Approving Submissions
+
+**Endpoint**: `POST /w9/approve`
+
+**Request**:
+```json
+{
+  "id": 123
+}
+```
+
+**Response**:
+```json
+{
+  "submission": {
+    "id": 123,
+    "wallet_address": "0xuser...",
+    "email": "user@example.com",
+    "year": 2026,
+    "pending_approval": false,
+    "approved_at": "2026-03-04T13:00:00Z",
+    "approved_by": "did:privy:admin123"
+  }
+}
+```
+
+**Email Notification**: User receives approval email:
+> "Your W9 has been approved for wallet 0xuser.... The $600 restriction has been removed."
+
+**Code Reference**: `backend/handlers/w9.go:363-422`
+
+### Rejecting Submissions
+
+**Endpoint**: `POST /w9/reject`
+
+**Request**:
+```json
+{
+  "id": 123,
+  "reason": "Incomplete information provided"
+}
+```
+
+**Response**:
+```json
+{
+  "submission": {
+    "id": 123,
+    "wallet_address": "0xuser...",
+    "email": "user@example.com",
+    "year": 2026,
+    "pending_approval": false,
+    "rejected_at": "2026-03-04T13:00:00Z",
+    "rejected_by": "did:privy:admin123",
+    "rejection_reason": "Incomplete information provided"
+  }
+}
+```
+
+**Code Reference**: `backend/handlers/w9.go:424-462`
+
+## Testing Flow
+
+### Local Testing with Anvil
+
+From `TESTING.md`:
+
+#### 1. Start Test Environment
+
+```bash
+/scripts/start_anvil_test.sh
+```
+
+Starts:
+- Anvil fork (Berachain)
+- Backend server
+- Ponder indexer
+- Frontend
+
+**Reference**: `source/TESTING.md:16-32`
+
+#### 2. Create Test Transfer
+
+```bash
+/scripts/w9_anvil_qr_test.sh
+```
+
+This script:
+- Sends 200 SFLUV from faucet to new random wallet
+- Waits for Ponder to index transfer
+- Waits for `app.w9_wallet_earnings` to update
+- Creates event + code
+- Prints redeem URL showing "W9 Required" UI state
+
+**Reference**: `source/TESTING.md:34-44`
+
+#### 3. Submit W9 (Mock)
+
+```bash
+/scripts/w9_submit_latest.sh
+```
+
+Submits W9 for latest faucet transfer recipient.
+Tests "W9 Pending" UI state.
+
+**Reference**: `source/TESTING.md:46-52`
+
+#### 4. Approve W9
+
+1. Open Admin → W9 tab
+2. Find pending submission
+3. Click "Approve"
+4. Submission marked approved
+
+**Reference**: `source/TESTING.md:69-71`
+
+#### 5. Verify Unblocked
+
+```bash
+/scripts/w9_verify_unblocked.sh
+```
+
+Should print: `"Unblocked: OK"`
+
+**Reference**: `source/TESTING.md:72-77`
+
+### Webhook Testing
+
+**Endpoint**: `POST /w9/webhook`
+
+**JSON Payload**:
+```bash
+curl -X POST http://localhost:8080/w9/webhook \
+  -H "Content-Type: application/json" \
+  -H "X-W9-Secret: your_secret" \
+  -d '{
+    "wallet_address": "0x1234...",
+    "email": "test@example.com",
+    "year": 2026
+  }'
+```
+
+**Form Payload**:
+```bash
+curl -X POST http://localhost:8080/w9/webhook \
+  -H "X-W9-Secret: your_secret" \
+  -d "wallet=0x1234...&email=test@example.com&year=2026"
+```
+
+**Reference**: `source/TESTING.md:54-68`
+
+## Database Schema
+
+### w9_wallet_earnings
+
+```sql
+CREATE TABLE w9_wallet_earnings (
+  id SERIAL PRIMARY KEY,
+  wallet_address TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  amount_received TEXT NOT NULL,  -- wei format bigint as string
+  user_id TEXT,
+  w9_required BOOLEAN DEFAULT false,
+  w9_required_at TIMESTAMP,
+  last_tx_hash TEXT,
+  last_tx_timestamp INTEGER,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(wallet_address, year)
+);
+```
+
+**Code Reference**: `backend/structs/bot.go` (W9WalletEarning struct)
+
+### w9_submissions
+
+```sql
+CREATE TABLE w9_submissions (
+  id SERIAL PRIMARY KEY,
+  wallet_address TEXT NOT NULL,
+  year INTEGER NOT NULL,
+  email TEXT NOT NULL,
+  pending_approval BOOLEAN DEFAULT true,
+  submitted_at TIMESTAMP DEFAULT NOW(),
+  approved_at TIMESTAMP,
+  approved_by TEXT,
+  rejected_at TIMESTAMP,
+  rejected_by TEXT,
+  rejection_reason TEXT,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Code Reference**: `backend/structs/bot.go` (W9Submission struct)
+
+## Environment Variables
+
+### Required Configuration
+
+```bash
+# Admin wallet addresses that trigger W9 tracking (comma-separated)
+PAID_ADMIN_ADDRESSES=0xfaucet1...,0xfaucet2...
+
+# W9 threshold in wei (default: 600 SFLUV)
+W9_THRESHOLD_WEI=600000000000000000000
+
+# WordPress webhook security (optional)
+W9_WEBHOOK_SECRET=your_secret_key
+
+# W9 submission URL (shown to users when required)
+W9_SUBMISSION_URL=https://wordpress.example.com/w9-form
+
+# Admin email for threshold notifications
+W9_ADMIN_EMAIL=admin@sfluv.com
+
+# Mailgun configuration (for notifications)
+MAILGUN_API_KEY=key-...
+MAILGUN_DOMAIN=mg.sfluv.com
+```
+
+**Code Reference**: `backend/handlers/w9.go:31-33`, `67`, `160`, `270-273`
+
+## Integration Points
+
+### Ponder Indexer
+
+Blockchain indexer watches for ERC20 transfer events:
+
+1. **Event Detection** - Transfer from admin address
+2. **Callback** - POST to `/ponder/callback`
+3. **W9 Processing** - `ProcessPaidTransfer()` called
+4. **Database Update** - Earnings record updated
+
+**Code Reference**: `backend/handlers/w9.go:166-260`
+
+### Frontend Integration
+
+Frontend pages display W9 status:
+
+**Merchant Status Page** (`/merchant-status`):
+- Shows current earnings
+- Displays W9 requirement status
+- Links to W9 submission form
+- Shows pending/approved state
+
+**Unwrap Page** (`/unwrap`):
+- Checks W9 compliance before allowing unwrap
+- Blocks if W9 required but not approved
+
+## Admin Notifications
+
+When threshold is reached:
+
+**Subject**: `W9 required for wallet {address}`
+
+**Body**:
+```
+Wallet {address} reached the W9 threshold in {year}.
+
+Current total: {current}
+New total: {new}
+Limit: {limit}
+```
+
+Sent to `W9_ADMIN_EMAIL` via Mailgun.
+
+**Code Reference**: `backend/handlers/w9.go:262-297`
+
+## User Notifications
+
+When W9 is approved:
+
+**Subject**: `W9 approved - restriction removed`
+
+**Body**:
+```
+Your W9 has been approved for wallet {address}. 
+The $600 restriction has been removed.
+```
+
+Sent to submission email via Mailgun.
+
+**Code Reference**: `backend/handlers/w9.go:391-409`
+
+## Best Practices
+
+### For Admins
+
+1. **Review Promptly** - Process W9 submissions within 24-48 hours
+2. **Verify Information** - Ensure wallet address matches submission
+3. **Clear Rejections** - Provide specific reason when rejecting
+4. **Annual Review** - Check for new year threshold crossings in January
+5. **Record Keeping** - Maintain separate tax records for 1099 filing
+
+### For Developers
+
+1. **Test Annually** - Verify year rollover logic
+2. **Monitor Thresholds** - Alert if many users near $600
+3. **Backup Submissions** - Maintain copies of W9 forms
+4. **Webhook Security** - Always use `W9_WEBHOOK_SECRET` in production
+5. **Error Logging** - Log all W9 check failures for debugging
+
+### For Users
+
+1. **Submit Early** - Don't wait until blocked to submit W9
+2. **Accurate Email** - Use email you regularly check
+3. **Correct Wallet** - Verify wallet address before submitting
+4. **Monitor Earnings** - Track your year-to-date total
+5. **Annual Resubmit** - W9 required each calendar year over $600
+
+## Troubleshooting
+
+### Common Issues
+
+**Transaction Blocked Despite Approved W9**
+- Check submission year matches current year
+- Verify wallet address exact match (case-insensitive)
+- Confirm approval not rejected later
+- Check database for `pending_approval=false` and `approved_at` set
+
+**Earnings Not Tracking**
+- Verify sender address in `PAID_ADMIN_ADDRESSES`
+- Check Ponder indexer is running and synced
+- Confirm `/ponder/callback` endpoint working
+- Verify `w9_wallet_earnings` table updates
+
+**Webhook Submissions Failing**
+- Check `X-W9-Secret` header matches env var
+- Verify JSON or form encoding matches expected format
+- Check server logs for validation errors
+- Confirm wallet address format valid
+
+**Email Notifications Not Sending**
+- Verify Mailgun API key and domain configured
+- Check `W9_ADMIN_EMAIL` environment variable set
+- Review server logs for Mailgun errors
+- Confirm email addresses valid format
+
+### Debug Queries
+
+```sql
+-- Check earnings for wallet
+SELECT * FROM w9_wallet_earnings 
+WHERE wallet_address = LOWER('0xuser...') AND year = 2026;
+
+-- Check W9 submission status
+SELECT * FROM w9_submissions 
+WHERE wallet_address = LOWER('0xuser...') AND year = 2026;
+
+-- Find pending submissions
+SELECT * FROM w9_submissions 
+WHERE pending_approval = true;
+
+-- Check admin addresses
+SELECT DISTINCT from_address FROM ponder.transfer_event 
+WHERE from_address IN ('0xfaucet1...', '0xfaucet2...');
+```
+
+## Security Considerations
+
+### Webhook Security
+
+- **Shared Secret** - Use strong, random `W9_WEBHOOK_SECRET`
+- **HTTPS Only** - Require TLS for webhook endpoint
+- **Rate Limiting** - Prevent abuse of submission endpoint
+- **Input Validation** - Sanitize all user inputs
+
+### Data Privacy
+
+- **PII Protection** - Encrypt W9 submissions at rest
+- **Access Control** - Limit admin access to W9 data
+- **Retention Policy** - Define how long to keep submissions
+- **Audit Logging** - Log all W9 approvals/rejections
+
+### Compliance
+
+- **IRS Requirements** - Ensure W9 form matches IRS standards
+- **1099 Filing** - Integrate approved W9s with 1099 generation
+- **Year-End Reporting** - Generate annual reports for tax filing
+- **Backup Verification** - Manual review for high-value submissions

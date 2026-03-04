@@ -1,0 +1,534 @@
+---
+title: 'Anvil Fork Testing'
+description: 'Local blockchain testing for W9 compliance and faucet flows'
+---
+
+## Overview
+
+Anvil is a local Ethereum node (part of Foundry) that allows forking live networks for testing. SFLUV uses Anvil to:
+
+- Test W9 compliance flows
+- Test faucet QR code redemptions
+- Test blockchain transfers without spending real tokens
+- Debug Ponder indexing
+
+**Source**: `~/workspace/source/TESTING.md`
+
+---
+
+## Prerequisites
+
+### Required Tools
+
+- **Foundry** (anvil, cast)
+- **PostgreSQL** (with `app`, `bot`, `ponder` databases)
+- **psql** command-line client
+
+Install Foundry:
+
+```bash
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+```
+
+Verify installation:
+
+```bash
+anvil --version
+cast --version
+```
+
+---
+
+## Environment Setup
+
+### 1. Backend Environment
+
+`backend/.env`
+
+```bash
+PORT=8080
+DB_URL=localhost:5432
+DB_USER=postgres
+DB_PASSWORD=<your-password>
+
+TOKEN_ID=0x...              # SFLUV token address
+RPC_URL=https://rpc.berachain.com
+BOT_ADDRESS=0x...           # Faucet bot address
+BOT_KEY=0x...               # Faucet bot private key
+
+PRIVY_APP_ID=clxxxx...
+PRIVY_VKEY="-----BEGIN PUBLIC KEY-----..."
+
+MAILGUN_API_KEY=key-xxx
+MAILGUN_DOMAIN=mail.sfluv.org
+
+PONDER_SERVER_BASE_URL=http://localhost:42069
+PONDER_KEY=your-ponder-secret
+PONDER_CALLBACK_URL=http://localhost:8080/ponder/callback
+
+ADMIN_KEY=your-admin-key
+W9_WEBHOOK_SECRET=your-w9-secret
+PAID_ADMIN_ADDRESSES=0x...  # Faucet address
+```
+
+### 2. Ponder Environment
+
+`ponder/.env`
+
+```bash
+PONDER_RPC_URL_1=https://rpc.berachain.com
+DATABASE_URL=postgresql://postgres:<password>@localhost:5432/ponder
+
+ADMIN_KEY=your-admin-key
+PAID_ADMIN_ADDRESSES=0x...
+W9_TRANSACTION_URL=http://localhost:8080/w9/transaction
+```
+
+### 3. Anvil Environment
+
+`scripts/anvil.env`
+
+```bash
+ANVIL_FORK_URL=https://rpc.berachain.com
+ANVIL_FORK_BLOCK=1234567        # Recent block number
+ANVIL_CHAIN_ID=80084            # Berachain Bartio testnet
+ANVIL_UNLOCK=0x...              # Faucet address to impersonate
+```
+
+<Tip>
+The `ANVIL_UNLOCK` address will be impersonated, allowing you to send transactions without a private key.
+</Tip>
+
+---
+
+## Starting Anvil Test Environment
+
+### All-in-One Script
+
+`scripts/start_anvil_test.sh:1-101`
+
+```bash
+./scripts/start_anvil_test.sh
+```
+
+This script:
+1. Stops existing services on ports 8545, 8080, 42069, 3000
+2. Starts **Anvil** fork on localhost:8545
+3. Impersonates faucet address
+4. Funds bot and faucet addresses with gas
+5. Transfers 50,000 SFLUV from faucet to bot
+6. Starts **Backend** (port 8080)
+7. Starts **Ponder** (port 42069) with Anvil RPC override
+8. Starts **Frontend** (port 3000)
+
+### Logs
+
+Services log to `/tmp/`:
+
+```bash
+tail -f /tmp/anvil.log
+tail -f /tmp/sfluv_backend.log
+tail -f /tmp/sfluv_ponder.log
+tail -f /tmp/sfluv_frontend.log
+```
+
+### Verify Services Running
+
+```bash
+# Anvil
+curl http://localhost:8545 -X POST -H "Content-Type: application/json" \
+  --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+
+# Backend
+curl http://localhost:8080/locations
+
+# Ponder
+psql -d ponder -c "SELECT COUNT(*) FROM transfer_event;"
+
+# Frontend
+open http://localhost:3000
+```
+
+---
+
+## W9 Testing Flow
+
+### Test Script Overview
+
+`scripts/w9_anvil_qr_test.sh:1-110`
+
+This script automates the W9 test flow:
+
+1. Create a random test wallet
+2. Send 200 SFLUV from faucet to test wallet (via Anvil)
+3. Wait for Ponder to index the transfer
+4. Wait for backend to update `w9_wallet_earnings`
+5. Create a faucet event and QR code
+6. Print redemption URL
+
+### Step-by-Step Testing
+
+#### 1. Start Services
+
+```bash
+./scripts/start_anvil_test.sh
+```
+
+Wait for all services to start (~10 seconds).
+
+#### 2. Create On-Chain Transfer + QR Code
+
+```bash
+./scripts/w9_anvil_qr_test.sh
+```
+
+**Output**:
+
+```
+Test wallet: 0xAbC123...
+Sending 200 SFLUV from faucet 0xFaucet... via anvil...
+Waiting for ponder to index transfer_event...
+Waiting for w9_wallet_earnings to update...
+Creating event + code...
+
+Open this URL to verify W9 Required + submit button:
+http://localhost:3000/faucet/redeem?sigAuthAccount=0xAbC123...&code=ABC123
+```
+
+#### 3. Test W9 Required UI
+
+Open the printed URL in a browser. You should see:
+
+- "W9 Required" message
+- "Submit W9" button
+- Earnings summary showing $200+ earned
+
+#### 4. Submit W9 (Mock)
+
+```bash
+./scripts/w9_submit_latest.sh
+```
+
+This submits a W9 for the latest transfer recipient.
+
+**Backend logs** should show:
+
+```
+W9 submission received for wallet 0xAbC123...
+Status: pending
+```
+
+#### 5. Test W9 Pending UI
+
+Refresh the redemption URL. You should see:
+
+- "W9 Pending" status
+- Message: "Your W9 is under review"
+
+#### 6. Approve W9 (Admin)
+
+**Via Admin Panel**:
+
+1. Navigate to `http://localhost:3000/admin`
+2. Go to "W9" tab
+3. Find pending submission for `0xAbC123...`
+4. Click "Approve"
+
+**Via API**:
+
+```bash
+ADMIN_KEY="your-admin-key"
+WALLET="0xAbC123..."
+YEAR="2026"
+
+curl -X PUT http://localhost:8080/admin/w9/approve \
+  -H "X-Admin-Key: $ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"wallet_address":"'$WALLET'","year":'$YEAR'}'
+```
+
+#### 7. Verify Unblocked
+
+```bash
+./scripts/w9_verify_unblocked.sh
+```
+
+**Expected output**:
+
+```json
+{"unblocked": true}
+```
+
+#### 8. Redeem QR Code
+
+Refresh the redemption URL. You should now be able to:
+
+- Enter wallet address
+- Click "Redeem"
+- Receive SFLUV tokens
+
+---
+
+## Testing Scripts
+
+### start_anvil_test.sh
+
+Starts full test environment.
+
+**Key operations**:
+
+```bash
+# Start anvil fork
+anvil \
+  --fork-url "$ANVIL_FORK_URL" \
+  --fork-block-number "$ANVIL_FORK_BLOCK" \
+  --chain-id "$ANVIL_CHAIN_ID" &
+
+# Impersonate faucet address
+cast rpc anvil_impersonateAccount "$ANVIL_UNLOCK"
+
+# Fund addresses with gas
+cast rpc anvil_setBalance "$BOT_ADDRESS" 0x3635C9ADC5DEA00000
+cast rpc anvil_setBalance "$ANVIL_UNLOCK" 0x3635C9ADC5DEA00000
+
+# Transfer SFLUV from faucet to bot
+cast send "$TOKEN_ID" "transfer(address,uint256)" "$BOT_ADDRESS" 50000000000000000000 \
+  --rpc-url http://127.0.0.1:8545 \
+  --from "$ANVIL_UNLOCK" \
+  --unlocked
+```
+
+### w9_anvil_qr_test.sh
+
+Creates test transfer and QR code.
+
+**Key operations**:
+
+```bash
+# Generate random test wallet
+TEST_WALLET="0x$(openssl rand -hex 20)"
+
+# Send 200 SFLUV from faucet
+cast send "$TOKEN_ID" "transfer(address,uint256)" "$TEST_WALLET" "200000000000000000000" \
+  --rpc-url http://127.0.0.1:8545 \
+  --from "$PAID_ADDR" \
+  --unlocked
+
+# Wait for Ponder to index
+while true; do
+  FOUND=$(psql -d ponder -t -c "SELECT 1 FROM transfer_event WHERE \"to\" = LOWER('${TEST_WALLET}') LIMIT 1;")
+  if [[ -n "$FOUND" ]]; then break; fi
+  sleep 1
+done
+
+# Create event via backend
+EVENT_ID=$(curl -X POST http://localhost:8080/events \
+  -H "X-Admin-Key: ${ADMIN_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"W9 Test","codes":1,"amount":1}')
+
+# Get code
+CODE=$(curl "http://localhost:8080/events/${EVENT_ID}?count=1&page=0" \
+  -H "X-Admin-Key: ${ADMIN_KEY}" | jq -r '.[0].id')
+
+echo "http://localhost:3000/faucet/redeem?code=${CODE}&sigAuthAccount=${TEST_WALLET}"
+```
+
+### w9_submit_latest.sh
+
+Submits W9 for latest transfer recipient.
+
+```bash
+# Get latest transfer recipient
+LATEST_WALLET=$(psql -d ponder -t -c \
+  "SELECT \"to\" FROM transfer_event WHERE \"from\" = LOWER('${PAID_ADDR}') ORDER BY timestamp DESC LIMIT 1;" \
+  | xargs)
+
+# Submit W9
+curl -X POST http://localhost:8080/w9/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "wallet_address": "'$LATEST_WALLET'",
+    "email": "test@example.com",
+    "year": 2026
+  }'
+```
+
+### w9_verify_unblocked.sh
+
+Checks if wallet is unblocked after W9 approval.
+
+```bash
+LATEST_WALLET=$(psql -d ponder -t -c \
+  "SELECT \"to\" FROM transfer_event WHERE \"from\" = LOWER('${PAID_ADDR}') ORDER BY timestamp DESC LIMIT 1;" \
+  | xargs)
+
+# Check eligibility
+RESPONSE=$(curl -X POST http://localhost:8080/unwrap/eligibility \
+  -H "Access-Token: $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"wallet_address": "'$LATEST_WALLET'"}')
+
+echo $RESPONSE | jq '.'
+```
+
+---
+
+## Manual Testing Commands
+
+### Send Test Transfer
+
+```bash
+# Load environment
+source backend/.env
+source scripts/anvil.env
+
+# Send SFLUV
+cast send "$TOKEN_ID" "transfer(address,uint256)" "0xRecipient..." 100000000000000000000 \
+  --rpc-url http://127.0.0.1:8545 \
+  --from "$ANVIL_UNLOCK" \
+  --unlocked
+```
+
+### Query Ponder Database
+
+```bash
+# View all transfers
+psql -d ponder -c "SELECT * FROM transfer_event ORDER BY timestamp DESC LIMIT 10;"
+
+# View transfers from faucet
+psql -d ponder -c "SELECT * FROM transfer_event WHERE \"from\" = LOWER('0xFaucet...') LIMIT 10;"
+
+# View transfers to specific wallet
+psql -d ponder -c "SELECT * FROM transfer_event WHERE \"to\" = LOWER('0xRecipient...') LIMIT 10;"
+```
+
+### Query W9 Earnings
+
+```bash
+# View earnings for wallet
+psql -d app -c "SELECT * FROM w9_wallet_earnings WHERE wallet_address = LOWER('0xWallet...');"
+
+# View all pending W9 submissions
+psql -d bot -c "SELECT * FROM w9_submissions WHERE status = 'pending';"
+```
+
+### Reset Test Data
+
+```bash
+# Clear ponder events
+psql -d ponder -c "TRUNCATE transfer_event, approval_event CASCADE;"
+
+# Clear W9 data
+psql -d app -c "TRUNCATE w9_wallet_earnings CASCADE;"
+psql -d bot -c "TRUNCATE w9_submissions CASCADE;"
+
+# Restart Ponder to re-index
+pkill -f ponder
+cd ponder && pnpm dev > /tmp/sfluv_ponder.log 2>&1 &
+```
+
+---
+
+## Troubleshooting
+
+### Anvil Not Starting
+
+**Error**: `Address already in use`
+
+```bash
+# Kill existing anvil process
+lsof -ti :8545 | xargs kill -9
+```
+
+### Ponder Not Indexing
+
+**Symptoms**: Transfers not appearing in `transfer_event` table
+
+**Solutions**:
+
+1. Check Ponder logs:
+   ```bash
+   tail -f /tmp/sfluv_ponder.log
+   ```
+
+2. Verify RPC connection:
+   ```bash
+   curl http://localhost:8545 -X POST -H "Content-Type: application/json" \
+     --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+   ```
+
+3. Check start block in Ponder:
+   ```bash
+   # Ponder should start from ANVIL_FORK_BLOCK
+   grep "PONDER_START_BLOCK" /tmp/sfluv_ponder.log
+   ```
+
+4. Restart Ponder:
+   ```bash
+   pkill -f ponder
+   cd ponder && PONDER_RPC_URL_1="http://127.0.0.1:8545" pnpm dev &
+   ```
+
+### W9 Earnings Not Updating
+
+**Symptoms**: Transfer indexed, but `w9_wallet_earnings` not updated
+
+**Solutions**:
+
+1. Check backend logs:
+   ```bash
+   tail -f /tmp/sfluv_backend.log
+   ```
+
+2. Verify Ponder callback:
+   ```bash
+   # Backend should receive POST to /ponder/callback
+   grep "ponder/callback" /tmp/sfluv_backend.log
+   ```
+
+3. Check `PAID_ADMIN_ADDRESSES` match:
+   ```bash
+   # backend/.env
+   echo $PAID_ADMIN_ADDRESSES
+   
+   # ponder/.env
+   psql -d ponder -c "SELECT DISTINCT \"from\" FROM transfer_event;"
+   ```
+
+### QR Code Not Working
+
+**Symptoms**: Redemption URL returns error
+
+**Solutions**:
+
+1. Verify code exists:
+   ```bash
+   psql -d bot -c "SELECT * FROM codes WHERE id = 'YOUR_CODE';"
+   ```
+
+2. Check event exists:
+   ```bash
+   psql -d bot -c "SELECT * FROM events WHERE id = 'EVENT_ID';"
+   ```
+
+3. Test redemption endpoint:
+   ```bash
+   curl -X POST http://localhost:8080/redeem \
+     -H "Content-Type: application/json" \
+     -d '{"code":"YOUR_CODE","wallet":"0xWallet..."}'
+   ```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Testing Overview" icon="flask" href="/dev/testing">
+    Backend and frontend testing strategies
+  </Card>
+  <Card title="Database Schema" icon="database" href="/dev/database">
+    Understanding the database structure
+  </Card>
+</CardGroup>

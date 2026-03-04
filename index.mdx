@@ -1,97 +1,197 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "SFLUV Documentation"
+mode: "custom"
 ---
 
-## Setting up
+<div className="relative overflow-hidden bg-gradient-to-br from-[#6366f1] via-[#4f46e5] to-[#4338ca] dark:from-[#4f46e5] dark:via-[#4338ca] dark:to-[#3730a3] py-20">
+  <div className="max-w-6xl mx-auto px-6 lg:px-8">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      <div className="lg:col-span-7">
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-6">
+          Community-Driven Local Currency Platform
+        </h1>
+        <p className="text-xl text-white/90 max-w-2xl mb-8">
+          SFLUV is a governance platform built on Berachain that enables communities to manage workflows, credentials, and payments using local currency tokens.
+        </p>
+        <div className="flex flex-wrap gap-4">
+          <a
+            href="/quickstart"
+            className="inline-flex items-center px-6 py-3 rounded-lg bg-white text-[#6366f1] font-semibold hover:bg-white/90 transition-colors"
+          >
+            Get Started
+          </a>
+          <a
+            href="/api/overview"
+            className="inline-flex items-center px-6 py-3 rounded-lg border border-white/30 bg-white/10 text-white font-semibold hover:bg-white/20 transition-colors"
+          >
+            API Reference
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="mb-12">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Quick Start</h2>
+    <p className="text-gray-600 dark:text-gray-400 mb-6">Get started with SFLUV in a few simple steps</p>
+  </div>
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+  <Steps>
+    <Step title="Create your account">
+      Sign up for a SFLUV account and connect your wallet using Privy authentication. Your wallet address becomes your identity in the platform.
+    </Step>
+    <Step title="Request a role">
+      Navigate to Settings to request roles based on your participation: Proposer, Improver, Voter, Issuer, Merchant, or Affiliate. Admin approval is required for most roles.
+    </Step>
+    <Step title="Start participating">
+      Once approved, you can begin creating workflows, completing tasks, voting on proposals, or managing credentials based on your assigned role.
+    </Step>
+  </Steps>
+</div>
 
-## Make it yours
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="mb-8">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Explore by Role</h2>
+    <p className="text-gray-600 dark:text-gray-400">Learn how to use SFLUV based on your role in the community</p>
+  </div>
 
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
-  </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
-  </Card>
+  <CardGroup cols={3}>
     <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
-  </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
+      title="Proposers"
+      icon="lightbulb"
+      href="/guides/proposers"
+    >
+      Create and manage workflow proposals for community projects
+    </Card>
+    <Card
+      title="Improvers"
+      icon="users"
+      href="/guides/improvers"
+    >
+      Claim and complete workflow steps to earn SFLUV tokens
+    </Card>
+    <Card
+      title="Voters"
+      icon="check-to-slot"
+      href="/guides/voters"
+    >
+      Vote on workflow proposals and influence community decisions
+    </Card>
+    <Card
+      title="Issuers"
+      icon="certificate"
+      href="/guides/issuers"
+    >
+      Grant and revoke credentials to manage role requirements
+    </Card>
+    <Card
+      title="Merchants"
+      icon="store"
+      href="/guides/merchants"
+    >
+      Accept SFLUV tokens and manage your location on the map
+    </Card>
+    <Card
+      title="Affiliates"
+      icon="handshake"
+      href="/guides/affiliates"
+    >
+      Create events and manage affiliate payouts
+    </Card>
+  </CardGroup>
+</div>
 
-## Create beautiful pages
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="mb-8">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Core Concepts</h2>
+    <p className="text-gray-600 dark:text-gray-400">Understand the key building blocks of the SFLUV platform</p>
+  </div>
 
-Everything you need to create world-class documentation.
+  <CardGroup cols={2}>
+    <Card
+      title="Workflows"
+      icon="diagram-project"
+      href="/concepts/workflows"
+    >
+      Multi-step community projects with bounties and sequential task completion
+    </Card>
+    <Card
+      title="Voting System"
+      icon="square-poll-vertical"
+      href="/concepts/voting"
+    >
+      Quorum-based governance with 24-hour countdown and early finalization
+    </Card>
+    <Card
+      title="Credentials"
+      icon="id-badge"
+      href="/concepts/credentials"
+    >
+      Verifiable credentials that gate access to specific workflow roles
+    </Card>
+    <Card
+      title="Roles"
+      icon="user-group"
+      href="/concepts/roles"
+    >
+      Multi-role system with proposers, improvers, voters, issuers, and more
+    </Card>
+  </CardGroup>
+</div>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+<div className="mt-16 mb-16 max-w-5xl mx-auto px-6">
+  <div className="mb-8">
+    <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Key Features</h2>
+    <p className="text-gray-600 dark:text-gray-400">Powerful tools for community governance and coordination</p>
+  </div>
 
-## Need inspiration?
+  <CardGroup cols={2}>
+    <Card
+      title="Workflow Builder"
+      icon="wand-magic-sparkles"
+      href="/features/workflow-builder"
+    >
+      Create complex multi-step workflows with custom roles and bounties
+    </Card>
+    <Card
+      title="W9 Compliance"
+      icon="file-invoice-dollar"
+      href="/features/w9-compliance"
+    >
+      Automated W9 submission and verification for US tax compliance
+    </Card>
+    <Card
+      title="Calendar View"
+      icon="calendar"
+      href="/features/calendar"
+    >
+      Visualize workflows and deadlines in an interactive calendar
+    </Card>
+    <Card
+      title="Token Unwrapping"
+      icon="coins"
+      href="/features/token-unwrapping"
+    >
+      Convert SFLUV tokens back to HONEY after W9 approval
+    </Card>
+  </CardGroup>
+</div>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<div className="mt-20 mb-16 max-w-5xl mx-auto px-6">
+  <div className="rounded-2xl bg-gradient-to-br from-[#6366f1]/10 to-[#4f46e5]/10 dark:from-[#6366f1]/20 dark:to-[#4f46e5]/20 border border-[#6366f1]/20 dark:border-[#6366f1]/30 p-8 md:p-12">
+    <div className="max-w-2xl">
+      <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">Ready to get started?</h2>
+      <p className="text-gray-600 dark:text-gray-400 mb-6">
+        Follow our quickstart guide to set up your account and start participating in your local community.
+      </p>
+      <a
+        href="/quickstart"
+        className="inline-flex items-center px-6 py-3 rounded-lg bg-[#6366f1] text-white font-semibold hover:bg-[#4f46e5] transition-colors"
+      >
+        View Quickstart Guide
+      </a>
+    </div>
+  </div>
+</div>

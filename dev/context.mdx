@@ -1,0 +1,578 @@
+---
+title: 'React Context Providers'
+description: 'AppProvider, LocationProvider, and global state management'
+---
+
+## Overview
+
+SFLUV uses React Context for global state management:
+
+1. **AppProvider** - Authentication, user data, wallet management
+2. **LocationProvider** - Merchant locations and map state
+3. **ContactsProvider** - User contact book
+4. **TransactionProvider** - Transaction history
+
+**Location**: `frontend/context/`
+
+---
+
+## AppProvider
+
+The primary context provider for authentication and user state.
+
+**Location**: `frontend/context/AppProvider.tsx`
+
+### Context Shape
+
+```typescript
+interface AppContextType {
+  // Authentication
+  status: "loading" | "authenticated" | "unauthenticated"
+  user: User | null
+  login: () => Promise<void>
+  logout: () => Promise<void>
+  authFetch: (endpoint: string, options?: RequestInit) => Promise<Response>
+  
+  // Role-specific data
+  affiliate: Affiliate | null
+  proposer: Proposer | null
+  improver: Improver | null
+  issuer: IssuerRecord | null
+  supervisor: Supervisor | null
+  
+  // Wallets
+  wallets: AppWallet[]
+  walletsStatus: "loading" | "available" | "unavailable"
+  addWallet: (walletName: string) => Promise<void>
+  importWallet: (walletName: string, privateKey: string) => Promise<void>
+  updateWallet: (id: number, name: string) => Promise<string | null>
+  refreshWallets: () => Promise<void>
+  
+  // User locations
+  userLocations: AuthedLocation[]
+  setUserLocations: Dispatch<SetStateAction<AuthedLocation[]>>
+  
+  // Ponder subscriptions
+  ponderSubscriptions: PonderSubscription[]
+  addPonderSubscription: (email: string, address: string) => Promise<void>
+  getPonderSubscriptions: () => Promise<void>
+  deletePonderSubscription: (id: number) => Promise<void>
+  
+  // Error handling
+  error: string | unknown | null
+  setError: Dispatch<unknown>
+}
+```
+
+### User Type
+
+```typescript
+export interface User {
+  id: string                    // Privy DID
+  name: string
+  contact_email?: string
+  contact_phone?: string
+  isAdmin: boolean
+  isMerchant: boolean
+  isOrganizer: boolean
+  isImprover: boolean
+  isProposer: boolean
+  isVoter: boolean
+  isIssuer: boolean
+  isSupervisor: boolean
+  isAffiliate: boolean
+  paypalEthAddress: string
+  lastRedemption: number
+}
+```
+
+### Usage in Components
+
+```tsx
+import { useApp } from '@/context/AppProvider'
+
+export default function MyComponent() {
+  const { user, status, authFetch, wallets } = useApp()
+  
+  if (status === 'loading') {
+    return <div>Loading...</div>
+  }
+  
+  if (status === 'unauthenticated') {
+    return <div>Please log in</div>
+  }
+  
+  return (
+    <div>
+      <h1>Welcome, {user?.name}</h1>
+      <p>Wallets: {wallets.length}</p>
+      {user?.isProposer && <p>You are a proposer</p>}
+    </div>
+  )
+}
+```
+
+---
+
+## Authentication Flow
+
+### 1. Privy Integration
+
+`frontend/context/AppProvider.tsx:137-148`
+
+```tsx
+const {
+  getAccessToken,
+  authenticated: privyAuthenticated,
+  ready: privyReady,
+  login: privyLogin,
+  logout: privyLogout,
+  user: privyUser
+} = usePrivy()
+
+const { wallets: privyWallets, ready: walletsReady } = useWallets()
+```
+
+### 2. Auto-Login Effect
+
+`frontend/context/AppProvider.tsx:217-237`
+
+```tsx
+useEffect(() => {
+  if (!privyReady) return
+  if (!walletsReady) return
+  
+  // Skip auth for faucet pages
+  if (pathname.startsWith("/faucet")) {
+    _resetAppState()
+    return
+  }
+  
+  if (!privyAuthenticated) {
+    _resetAppState()
+    return
+  }
+  
+  // User is authenticated - fetch data
+  _userLogin()
+}, [privyReady, privyAuthenticated, walletsReady, privyUser])
+```
+
+### 3. User Login
+
+`frontend/context/AppProvider.tsx:284-313`
+
+```tsx
+const _userLogin = async () => {
+  if (status === "authenticated") return
+  
+  setStatus("loading")
+  
+  try {
+    // 1. Fetch user from backend
+    let userResponse = await _getUser()
+    
+    // 2. If user doesn't exist, create account
+    if (userResponse === null) {
+      await _postUser()
+      userResponse = await _getUser()
+    }
+    
+    if (userResponse === null) {
+      throw new Error("error posting user")
+    }
+    
+    // 3. Set user and role data
+    await _userResponseToUser(userResponse)
+    
+    // 4. Initialize wallets
+    await _initWallets(userResponse.wallets)
+    
+    // 5. Fetch ponder subscriptions
+    await getPonderSubscriptions()
+    
+    // 6. Set user locations
+    setUserLocations(userResponse.locations)
+    
+    setStatus("authenticated")
+  } catch (error) {
+    setError(error)
+    await logout()
+  }
+}
+```
+
+### 4. authFetch Utility
+
+`frontend/context/AppProvider.tsx:330-339`
+
+```tsx
+const authFetch = async (
+  endpoint: string, 
+  options: RequestInit = {}
+): Promise<Response> => {
+  const accessToken = await getAccessToken()
+  if (!accessToken) throw new Error("no access token")
+  
+  const headers: HeadersInit = {
+    ...options.headers,
+    "Access-Token": accessToken,
+  }
+  
+  return await fetch(BACKEND + endpoint, { ...options, headers })
+}
+```
+
+**Usage**:
+
+```tsx
+const { authFetch } = useApp()
+
+// GET request
+const res = await authFetch('/users')
+const user = await res.json()
+
+// POST request
+const res = await authFetch('/proposers/workflows', {
+  method: 'POST',
+  body: JSON.stringify({ title: "New Workflow", ... })
+})
+```
+
+---
+
+## Wallet Management
+
+### Wallet Initialization
+
+`frontend/context/AppProvider.tsx:394-450`
+
+```tsx
+const _initWallets = async (extWallets?: WalletResponse[]) => {
+  setWalletsStatus("loading")
+  
+  try {
+    if (!privyUser?.id) throw new Error("user not authenticated")
+    
+    // Get Privy-managed wallets (embedded + linked)
+    const managedPrivyWallets = getManagedPrivyWallets()
+    
+    let walletPromises: Promise<AppWallet>[] = []
+    
+    for (const privyWallet of managedPrivyWallets) {
+      // Switch wallet to correct chain
+      await privyWallet.switchChain(CHAIN_ID)
+      
+      // Initialize EOA wallet
+      let extWallet = extWallets.find(
+        w => w.eoa_address === privyWallet.address && w.is_eoa
+      )
+      walletPromises.push(_initEOAWallet(privyWallet, extWallet, i))
+      
+      // Initialize smart wallets
+      let smartWallets = extWallets.filter(
+        w => w.eoa_address === privyWallet.address && !w.is_eoa
+      )
+      
+      for (const extSmartWallet of smartWallets) {
+        walletPromises.push(_initSmartWallet(privyWallet, extSmartWallet, index, i))
+      }
+    }
+    
+    let wallets = await Promise.all(walletPromises)
+    setWallets(wallets)
+    setWalletsStatus("available")
+  } catch (error) {
+    setWalletsStatus("unavailable")
+    throw new Error("error initializing wallets")
+  }
+}
+```
+
+### Adding a Smart Wallet
+
+```tsx
+const { addWallet } = useApp()
+
+await addWallet("My Spending Wallet")
+// Creates a new smart account, saves to backend, adds to state
+```
+
+### Importing a Wallet
+
+```tsx
+const { importWallet } = useApp()
+
+await importWallet("Imported Wallet", "0xprivatekey...")
+// Imports EOA via Privy, saves to backend, refreshes wallet list
+```
+
+---
+
+## Idle Timer
+
+Auto-logout after inactivity.
+
+`frontend/context/AppProvider.tsx:186-208`
+
+```tsx
+const { getRemainingTime, start, pause, reset } = useIdleTimer({
+  onIdle: () => {
+    if (status === "authenticated") {
+      logout()
+    }
+  },
+  onPrompt: () => {
+    if (status === "authenticated") {
+      setIdleModalOpen(true)  // Show warning modal
+    }
+  },
+  promptBeforeIdle: IDLE_TIMER_PROMPT_SECONDS * 1000,  // 60s
+  timeout: IDLE_TIMER_SECONDS * 1000,                  // 600s (10min)
+  throttle: 500,
+  startManually: true
+})
+
+// Start timer on authentication
+useEffect(() => {
+  if (status === "authenticated") {
+    reset()
+    start()
+  } else {
+    pause()
+  }
+}, [status])
+```
+
+---
+
+## LocationProvider
+
+Manages merchant locations and map state.
+
+**Location**: `frontend/context/LocationProvider.tsx`
+
+### Context Shape
+
+```typescript
+interface LocationContextType {
+  mapLocations: Location[]                    // Public locations
+  authedMapLocations: AuthedLocation[]        // Admin view (includes pending)
+  locationTypes: string[]                     // Categories (for filtering)
+  mapLocationsStatus: "loading" | "available" | "unavailable"
+  getMapLocations: () => Promise<void>
+  getAuthedMapLocations: () => Promise<void>
+  updateLocation: (location: AuthedLocation) => Promise<void>
+  updateLocationApproval: (req: UpdateLocationApprovalRequest) => Promise<void>
+  addLocation: (location: AuthedLocation) => Promise<void>
+}
+```
+
+### Usage
+
+```tsx
+import { useLocation } from '@/context/LocationProvider'
+
+export default function MapPage() {
+  const { mapLocations, mapLocationsStatus, getMapLocations } = useLocation()
+  
+  useEffect(() => {
+    getMapLocations()
+  }, [])
+  
+  if (mapLocationsStatus === 'loading') {
+    return <div>Loading map...</div>
+  }
+  
+  return (
+    <Map locations={mapLocations} />
+  )
+}
+```
+
+### Adding a Location
+
+`frontend/context/LocationProvider.tsx:105-116`
+
+```tsx
+const addLocation = async (location: AuthedLocation) => {
+  setMapLocationsStatus("loading")
+  
+  try {
+    await _addLocation(location)  // POST to backend
+    setUserLocations([...userLocations, location])
+  } catch {
+    setMapLocationsStatus("unavailable")
+    console.error("error adding new location")
+  }
+  
+  setMapLocationsStatus("available")
+}
+```
+
+---
+
+## ContactsProvider
+
+Manages user contact book.
+
+**Location**: `frontend/context/ContactsProvider.tsx`
+
+### Context Shape
+
+```typescript
+interface ContactsContextType {
+  contacts: Contact[]
+  getContacts: () => Promise<void>
+  addContact: (contact: Contact) => Promise<void>
+  updateContact: (contact: Contact) => Promise<void>
+  deleteContact: (id: number) => Promise<void>
+}
+```
+
+### Usage
+
+```tsx
+import { useContacts } from '@/context/ContactsProvider'
+
+const { contacts, addContact } = useContacts()
+
+const handleAddContact = async () => {
+  await addContact({
+    name: "Alice",
+    address: "0x...",
+    email: "alice@example.com"
+  })
+}
+```
+
+---
+
+## Root Provider
+
+**Location**: `frontend/context/Providers.tsx`
+
+Wraps all context providers:
+
+```tsx
+import { PrivyProvider } from '@privy-io/react-auth'
+import AppProvider from './AppProvider'
+import LocationProvider from './LocationProvider'
+import ContactsProvider from './ContactsProvider'
+import TransactionProvider from './TransactionProvider'
+
+export default function Providers({ children }: { children: ReactNode }) {
+  return (
+    <PrivyProvider
+      appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
+      config={{
+        loginMethods: ['email', 'sms', 'wallet', 'google'],
+        appearance: { theme: 'light' },
+        embeddedWallets: { createOnLogin: 'users-without-wallets' }
+      }}
+    >
+      <AppProvider>
+        <LocationProvider>
+          <ContactsProvider>
+            <TransactionProvider>
+              {children}
+            </TransactionProvider>
+          </ContactsProvider>
+        </LocationProvider>
+      </AppProvider>
+    </PrivyProvider>
+  )
+}
+```
+
+### Usage in Layout
+
+`frontend/app/layout.tsx`
+
+```tsx
+import Providers from '@/context/Providers'
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <Providers>
+          {children}
+        </Providers>
+      </body>
+    </html>
+  )
+}
+```
+
+---
+
+## Best Practices
+
+### 1. Always Check Status
+
+```tsx
+const { status, user } = useApp()
+
+if (status === 'loading') return <Spinner />
+if (status === 'unauthenticated') return <LoginPrompt />
+
+// Safe to use user
+return <div>Welcome {user.name}</div>
+```
+
+### 2. Use authFetch for API Calls
+
+```tsx
+const { authFetch } = useApp()
+
+// Good
+const res = await authFetch('/workflows')
+
+// Bad (missing JWT)
+const res = await fetch(`${BACKEND}/workflows`)
+```
+
+### 3. Handle Errors Gracefully
+
+```tsx
+const { authFetch, setError } = useApp()
+
+try {
+  const res = await authFetch('/workflows', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+  if (!res.ok) throw new Error('Failed to create workflow')
+} catch (error) {
+  setError(error)
+  // Error is logged in AppProvider
+}
+```
+
+### 4. Role-Based Rendering
+
+```tsx
+const { user } = useApp()
+
+return (
+  <div>
+    {user?.isAdmin && <AdminPanel />}
+    {user?.isProposer && <WorkflowBuilder />}
+    {user?.isImprover && <WorkflowFeed />}
+  </div>
+)
+```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Components" icon="cube" href="/dev/components">
+    Reusable component patterns
+  </Card>
+  <Card title="Frontend Overview" icon="browser" href="/dev/frontend-overview">
+    Next.js app structure
+  </Card>
+</CardGroup>

@@ -1,0 +1,169 @@
+---
+title: "Unwrap API"
+description: "Token unwrapping eligibility and tracking endpoints"
+---
+
+## Check Unwrap Eligibility
+
+<ParamField path="POST /unwrap/eligibility" type="endpoint">
+  Check if a wallet is eligible to unwrap tokens.
+</ParamField>
+
+**Authentication:** Required (Bearer token)
+
+**Request Body:**
+
+```json
+{
+  "wallet_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+  "amount_wei": "100000000000000000000"
+}
+```
+
+**Field Descriptions:**
+
+- `wallet_address` - Wallet address to check (must be owned by authenticated user)
+- `amount_wei` - Amount to unwrap in wei (string)
+
+**Response:** `200 OK` (allowed) or `403 Forbidden` (not allowed)
+
+### Allowed Response
+
+```json
+{
+  "allowed": true,
+  "reason": "",
+  "last_unwrap_at": "2026-02-15T10:30:00Z",
+  "minimum_followup_amount_wei": "100000000000000000000"
+}
+```
+
+### Not Allowed Response (403 Forbidden)
+
+```json
+{
+  "allowed": false,
+  "reason": "You already unwrapped this month. Additional unwraps this month must be at least $100.",
+  "last_unwrap_at": "2026-03-01T08:15:00Z",
+  "minimum_followup_amount_wei": "100000000000000000000"
+}
+```
+
+**Possible Rejection Reasons:**
+
+- Wallet is not unwrap-enabled (not marked as redeemer)
+- Already unwrapped this calendar month and amount is below $100 minimum
+
+**Rules:**
+
+1. Wallet must have `is_redeemer` flag enabled
+2. First unwrap of the month: any amount allowed
+3. Subsequent unwraps in same UTC calendar month: minimum 100 tokens (100000000000000000000 wei)
+
+**Error Responses:**
+
+- `400 Bad Request` - Invalid request body or amount
+- `401 Unauthorized` - Not authenticated
+- `403 Forbidden` - Wallet not owned by user or not eligible
+
+---
+
+## Record Unwrap
+
+<ParamField path="POST /unwrap/record" type="endpoint">
+  Record that a wallet has completed an unwrap transaction.
+</ParamField>
+
+**Authentication:** Required (Bearer token)
+
+**Request Body:**
+
+```json
+{
+  "wallet_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+  "tx_hash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+}
+```
+
+**Field Descriptions:**
+
+- `wallet_address` - Wallet address that performed the unwrap
+- `tx_hash` - (Optional) Transaction hash for reference
+
+**Response:** `200 OK`
+
+```json
+{
+  "recorded": true,
+  "recorded_at": "2026-03-04T10:00:00Z"
+}
+```
+
+**Error Responses:**
+
+- `400 Bad Request` - Invalid request body
+- `401 Unauthorized` - Not authenticated
+- `403 Forbidden` - Wallet not owned by user or not unwrap-enabled
+
+**Note:** This endpoint updates the `last_unwrap_at` timestamp for the wallet, which is used for monthly unwrap eligibility checks.
+
+---
+
+## Unwrap Flow
+
+The typical unwrap flow:
+
+1. **Check Eligibility**: Call `POST /unwrap/eligibility` before initiating unwrap
+2. **Execute Transaction**: User signs and broadcasts the unwrap transaction on-chain
+3. **Record Unwrap**: Call `POST /unwrap/record` after transaction confirms
+
+This ensures the backend tracks when the wallet last unwrapped, enforcing the monthly minimum for follow-up unwraps.
+
+---
+
+## Schemas
+
+### UnwrapEligibilityRequest
+
+```typescript
+interface UnwrapEligibilityRequest {
+  wallet_address: string;  // Ethereum address
+  amount_wei: string;      // Amount in wei (string to handle large numbers)
+}
+```
+
+### UnwrapEligibilityResponse
+
+```typescript
+interface UnwrapEligibilityResponse {
+  allowed: boolean;                     // Whether unwrap is allowed
+  reason: string;                       // Explanation if not allowed
+  last_unwrap_at: string | null;       // ISO 8601 timestamp of last unwrap
+  minimum_followup_amount_wei: string; // Minimum for follow-up unwraps (100 tokens)
+}
+```
+
+### UnwrapRecordRequest
+
+```typescript
+interface UnwrapRecordRequest {
+  wallet_address: string;  // Ethereum address
+  tx_hash?: string;        // Optional transaction hash
+}
+```
+
+### UnwrapRecordResponse
+
+```typescript
+interface UnwrapRecordResponse {
+  recorded: boolean;       // Always true on success
+  recorded_at: string;     // ISO 8601 timestamp when recorded
+}
+```
+
+---
+
+## Constants
+
+- **Minimum Follow-up Amount**: 100 tokens (100000000000000000000 wei)
+- **Time Window**: UTC calendar month

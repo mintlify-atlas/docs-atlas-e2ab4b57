@@ -1,0 +1,535 @@
+---
+title: 'Testing Overview'
+description: 'Testing strategies for backend and frontend'
+---
+
+## Overview
+
+SFLUV uses multiple testing strategies:
+
+1. **Backend Tests** - Go unit tests for handlers, database layer, router
+2. **Frontend Type-Checking** - TypeScript validation
+3. **Anvil Fork Testing** - Local blockchain testing for W9 and faucet flows
+4. **Integration Testing** - End-to-end workflow testing
+
+---
+
+## Backend Testing
+
+### Running Tests
+
+```bash
+cd backend
+go test -vet=off ./db ./handlers ./router ./structs
+```
+
+<Tip>
+The `-vet=off` flag disables Go's vet tool, which can be overly strict for test code.
+</Tip>
+
+### Test Structure
+
+Tests live alongside source files:
+
+```
+backend/
+├── handlers/
+│   ├── bot.go
+│   └── bot_redeem_code_test.go
+├── db/
+│   ├── app_user.go
+│   └── app_user_test.go
+└── router/
+    ├── router.go
+    └── router_test.go
+```
+
+### Example: Handler Test
+
+`backend/handlers/bot_redeem_code_test.go`
+
+```go
+package handlers
+
+import (
+    "context"
+    "net/http"
+    "net/http/httptest"
+    "strings"
+    "testing"
+)
+
+func TestRedeemCode(t *testing.T) {
+    // Setup: Create test database
+    testDB := setupTestDB(t)
+    defer teardownTestDB(t, testDB)
+    
+    // Create test event and code
+    eventID := createTestEvent(t, testDB, "Test Event", 100, 10)
+    code := createTestCode(t, testDB, eventID)
+    
+    // Initialize service
+    botService := NewBotService(testDB, nil, nil, nil, nil)
+    
+    // Create request
+    body := strings.NewReader(`{"code":"` + code.Id + `","wallet":"0x1234"}")`)
+    req := httptest.NewRequest("POST", "/redeem", body)
+    req.Header.Set("Content-Type", "application/json")
+    
+    // Execute handler
+    w := httptest.NewRecorder()
+    botService.Redeem(w, req)
+    
+    // Assert response
+    if w.Code != http.StatusOK {
+        t.Errorf("Expected status 200, got %d", w.Code)
+    }
+    
+    // Verify code marked as redeemed
+    redeemedCode, _ := testDB.GetCodeById(context.Background(), code.Id)
+    if !redeemedCode.Redeemed {
+        t.Error("Code should be marked as redeemed")
+    }
+}
+
+func setupTestDB(t *testing.T) *db.BotDB {
+    // Create in-memory test database
+    testDB, err := db.PgxDB("test_bot")
+    if err != nil {
+        t.Fatalf("Failed to create test DB: %v", err)
+    }
+    return db.Bot(testDB)
+}
+```
+
+### Database Layer Testing
+
+```go
+func TestGetUserByDid(t *testing.T) {
+    ctx := context.Background()
+    appDB := setupTestAppDB(t)
+    
+    // Insert test user
+    testUser := &structs.User{
+        Id:          "did:privy:test",
+        ContactName: "Test User",
+        IsAdmin:     false,
+    }
+    err := appDB.CreateUser(ctx, testUser)
+    if err != nil {
+        t.Fatalf("Failed to create user: %v", err)
+    }
+    
+    // Fetch user
+    user, err := appDB.GetUserByDid(ctx, "did:privy:test")
+    if err != nil {
+        t.Errorf("Failed to get user: %v", err)
+    }
+    
+    // Assert
+    if user.ContactName != "Test User" {
+        t.Errorf("Expected name 'Test User', got '%s'", user.ContactName)
+    }
+}
+```
+
+### Middleware Testing
+
+```go
+func TestWithAuth(t *testing.T) {
+    // Mock handler
+    handlerCalled := false
+    handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        handlerCalled = true
+        w.WriteHeader(http.StatusOK)
+    })
+    
+    // Wrap with withAuth middleware
+    wrappedHandler := withAuth(handler)
+    
+    // Test: Request without auth
+    req := httptest.NewRequest("GET", "/test", nil)
+    w := httptest.NewRecorder()
+    wrappedHandler.ServeHTTP(w, req)
+    
+    if w.Code != http.StatusForbidden {
+        t.Errorf("Expected 403, got %d", w.Code)
+    }
+    if handlerCalled {
+        t.Error("Handler should not be called without auth")
+    }
+    
+    // Test: Request with auth
+    handlerCalled = false
+    ctx := context.WithValue(req.Context(), "userDid", "test-user")
+    req = req.WithContext(ctx)
+    w = httptest.NewRecorder()
+    wrappedHandler.ServeHTTP(w, req)
+    
+    if w.Code != http.StatusOK {
+        t.Errorf("Expected 200, got %d", w.Code)
+    }
+    if !handlerCalled {
+        t.Error("Handler should be called with auth")
+    }
+}
+```
+
+---
+
+## Frontend Testing
+
+### Type-Checking
+
+TypeScript ensures type safety at compile time:
+
+```bash
+cd frontend
+npx tsc --noEmit
+```
+
+<Warning>
+Many pre-existing TypeScript errors exist in unrelated files. Focus on new/changed files only when adding features.
+</Warning>
+
+### Linting
+
+ESLint checks code quality:
+
+```bash
+cd frontend
+pnpm lint
+```
+
+Fix auto-fixable issues:
+
+```bash
+pnpm lint --fix
+```
+
+### Build Validation
+
+Ensure the app builds successfully:
+
+```bash
+cd frontend
+pnpm build
+```
+
+---
+
+## Anvil Fork Testing
+
+Test W9 compliance and blockchain interactions locally using Anvil (Foundry).
+
+**Documentation**: See [Anvil Testing](/dev/anvil-testing) for detailed instructions.
+
+### Quick Start
+
+1. **Start Anvil + Services**:
+
+```bash
+./scripts/start_anvil_test.sh
+```
+
+Starts local blockchain fork, backend, ponder, and frontend.
+
+2. **Create Test Transfer + QR Code**:
+
+```bash
+./scripts/w9_anvil_qr_test.sh
+```
+
+Sends 200 SFLUV from faucet, waits for indexing, creates redemption QR code.
+
+3. **Submit W9**:
+
+```bash
+./scripts/w9_submit_latest.sh
+```
+
+Submits W9 for latest transfer recipient.
+
+4. **Verify Unblocked**:
+
+```bash
+./scripts/w9_verify_unblocked.sh
+```
+
+Verifies wallet is unblocked after W9 approval.
+
+---
+
+## Integration Testing
+
+### Workflow Lifecycle Test
+
+**Manual test steps**:
+
+1. **Create Workflow** (as Proposer):
+   - Navigate to `/proposer`
+   - Fill out workflow form
+   - Submit
+   - Verify workflow appears in "pending" state
+
+2. **Vote on Workflow** (as Voter):
+   - Navigate to `/voter`
+   - Vote "yes" on pending workflow
+   - Verify quorum reached after 50% of voters
+   - Verify countdown starts
+
+3. **Admin Force-Approve** (as Admin):
+   - Navigate to `/admin`
+   - Force-approve workflow
+   - Verify status changes to "approved"
+
+4. **Claim Step** (as Improver):
+   - Navigate to `/improver`
+   - Claim first step
+   - Verify step status is "in_progress"
+
+5. **Complete Step** (as Improver):
+   - Mark step as complete
+   - Upload photo (if required)
+   - Verify step status is "completed"
+   - Verify next step unlocks
+
+6. **Complete Workflow**:
+   - Complete all steps
+   - Verify workflow status is "completed"
+
+### API Integration Test
+
+Test API endpoints with curl:
+
+```bash
+# Get locations (public)
+curl http://localhost:8080/locations
+
+# Get user (requires auth)
+JWT="<your-privy-jwt>"
+curl -H "Access-Token: $JWT" http://localhost:8080/users
+
+# Create workflow (requires proposer role)
+curl -X POST http://localhost:8080/proposers/workflows \
+  -H "Access-Token: $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Test Workflow","description":"Test"}'
+
+# Admin endpoint (requires admin key)
+ADMIN_KEY="your-admin-key"
+curl -H "X-Admin-Key: $ADMIN_KEY" http://localhost:8080/admin/users
+```
+
+---
+
+## Test Data Setup
+
+### Creating Test Users
+
+**Via SQL** (for development):
+
+```sql
+-- Create admin user
+INSERT INTO users (id, contact_name, is_admin)
+VALUES ('did:privy:admin', 'Admin User', true);
+
+-- Create proposer user
+INSERT INTO users (id, contact_name, is_proposer)
+VALUES ('did:privy:proposer', 'Proposer User', true);
+
+INSERT INTO proposers (user_id, status, role_id)
+VALUES ('did:privy:proposer', 'approved', 'proposer-1');
+
+-- Create improver user
+INSERT INTO users (id, contact_name, is_improver)
+VALUES ('did:privy:improver', 'Improver User', true);
+
+INSERT INTO improvers (user_id, status, role_id)
+VALUES ('did:privy:improver', 'approved', 'landscaper');
+```
+
+### Creating Test Workflows
+
+```sql
+INSERT INTO workflows (
+  id, title, description, proposer_id, status, start_at, end_at
+) VALUES (
+  'workflow-1',
+  'Test Workflow',
+  'A test workflow',
+  'did:privy:proposer',
+  'pending',
+  NOW(),
+  NOW() + INTERVAL '7 days'
+);
+
+INSERT INTO workflow_steps (
+  id, workflow_id, step_number, description,
+  improver_role_id, hours_allocated, sfluv_allocated, status
+) VALUES (
+  'step-1', 'workflow-1', 1, 'First step',
+  'landscaper', 2, 50, 'locked'
+);
+```
+
+---
+
+## Continuous Integration
+
+### GitHub Actions Example
+
+`.github/workflows/test.yml`
+
+```yaml
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+      - name: Run tests
+        run: |
+          cd backend
+          go test -vet=off ./db ./handlers ./router ./structs
+        env:
+          DB_URL: localhost:5432
+          DB_USER: postgres
+          DB_PASSWORD: postgres
+  
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Install pnpm
+        run: npm install -g pnpm
+      - name: Install dependencies
+        run: |
+          cd frontend
+          pnpm install
+      - name: Type-check
+        run: |
+          cd frontend
+          npx tsc --noEmit
+      - name: Lint
+        run: |
+          cd frontend
+          pnpm lint
+      - name: Build
+        run: |
+          cd frontend
+          pnpm build
+```
+
+---
+
+## Testing Best Practices
+
+### 1. Use Test Databases
+
+Never run tests against production databases:
+
+```go
+func setupTestDB(t *testing.T) *db.AppDB {
+    testDB, err := db.PgxDB("test_app")
+    if err != nil {
+        t.Fatalf("Failed to create test DB: %v", err)
+    }
+    return db.App(testDB, nil)
+}
+
+func teardownTestDB(t *testing.T, appDB *db.AppDB) {
+    // Drop all tables or truncate data
+}
+```
+
+### 2. Isolate Tests
+
+Each test should be independent:
+
+```go
+func TestA(t *testing.T) {
+    db := setupTestDB(t)
+    defer teardownTestDB(t, db)
+    // Test A logic
+}
+
+func TestB(t *testing.T) {
+    db := setupTestDB(t)  // Fresh database
+    defer teardownTestDB(t, db)
+    // Test B logic
+}
+```
+
+### 3. Mock External Dependencies
+
+```go
+type MockEmailService struct {
+    SentEmails []string
+}
+
+func (m *MockEmailService) SendEmail(to, subject, body string) error {
+    m.SentEmails = append(m.SentEmails, to)
+    return nil
+}
+
+func TestEmailNotification(t *testing.T) {
+    mockEmail := &MockEmailService{}
+    service := NewAppService(testDB, nil, nil)
+    service.emailService = mockEmail
+    
+    service.NotifyAdmin("Test message")
+    
+    if len(mockEmail.SentEmails) != 1 {
+        t.Error("Expected 1 email to be sent")
+    }
+}
+```
+
+### 4. Test Edge Cases
+
+```go
+func TestRedeemCode_AlreadyRedeemed(t *testing.T) {
+    // Test redeeming a code twice
+}
+
+func TestRedeemCode_ExpiredCode(t *testing.T) {
+    // Test redeeming an expired code
+}
+
+func TestRedeemCode_InvalidCode(t *testing.T) {
+    // Test redeeming a non-existent code
+}
+```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Anvil Testing" icon="flask" href="/dev/anvil-testing">
+    Detailed guide for local blockchain testing
+  </Card>
+  <Card title="Setup Guide" icon="wrench" href="/dev/setup">
+    Return to local development setup
+  </Card>
+</CardGroup>

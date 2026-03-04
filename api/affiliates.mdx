@@ -1,0 +1,193 @@
+---
+title: "Affiliates API"
+description: "Affiliate management and status endpoints"
+---
+
+## Request Affiliate Status
+
+<ParamField path="POST /affiliates/request" type="endpoint">
+  Request affiliate status for the authenticated user.
+</ParamField>
+
+**Authentication:** Required (Bearer token)
+
+**Request Body:**
+
+```json
+{
+  "organization": "Community Garden Network"
+}
+```
+
+**Response:** `201 Created`
+
+```json
+{
+  "user_id": "did:key:z6Mk...",
+  "organization": "Community Garden Network",
+  "nickname": null,
+  "status": "pending",
+  "affiliate_logo": null,
+  "weekly_allocation": 0,
+  "weekly_balance": 0,
+  "one_time_balance": 0
+}
+```
+
+**Error Responses:**
+
+- `409 Conflict` - Affiliate already approved
+
+---
+
+## Get Affiliate by User ID
+
+<ParamField path="GET /affiliates/:user_id" type="endpoint">
+  Retrieve affiliate details for a specific user.
+</ParamField>
+
+**Authentication:** Required (Affiliate role, own user, or Admin)
+
+**Response:** `200 OK`
+
+```json
+{
+  "user_id": "did:key:z6Mk...",
+  "organization": "Community Garden Network",
+  "nickname": "GardenCo",
+  "status": "approved",
+  "affiliate_logo": "https://example.com/logo.png",
+  "weekly_allocation": 1000,
+  "weekly_balance": 750,
+  "one_time_balance": 500
+}
+```
+
+**Error Responses:**
+
+- `404 Not Found` - Affiliate not found
+- `403 Forbidden` - User not authorized to view this affiliate
+
+---
+
+## Update Affiliate Logo
+
+<ParamField path="PUT /affiliates/logo" type="endpoint">
+  Update the affiliate's logo URL.
+</ParamField>
+
+**Authentication:** Required (Affiliate role)
+
+**Request Body:**
+
+```json
+{
+  "logo": "https://example.com/new-logo.png"
+}
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "user_id": "did:key:z6Mk...",
+  "organization": "Community Garden Network",
+  "nickname": "GardenCo",
+  "status": "approved",
+  "affiliate_logo": "https://example.com/new-logo.png",
+  "weekly_allocation": 1000,
+  "weekly_balance": 750,
+  "one_time_balance": 500
+}
+```
+
+---
+
+## Admin: List Affiliates
+
+<ParamField path="GET /admin/affiliates" type="endpoint">
+  Retrieve paginated list of all affiliates (admin only).
+</ParamField>
+
+**Authentication:** Required (Admin role or X-Admin-Key header)
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `search` | string | - | Search by organization or user ID |
+| `page` | integer | 0 | Page number |
+| `count` | integer | 20 | Items per page |
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "user_id": "did:key:z6Mk...",
+    "organization": "Community Garden Network",
+    "nickname": "GardenCo",
+    "status": "approved",
+    "affiliate_logo": "https://example.com/logo.png",
+    "weekly_allocation": 1000,
+    "weekly_balance": 750,
+    "one_time_balance": 500
+  }
+]
+```
+
+---
+
+## Admin: Update Affiliate
+
+<ParamField path="PUT /admin/affiliates" type="endpoint">
+  Update affiliate settings (admin only).
+</ParamField>
+
+**Authentication:** Required (Admin role or X-Admin-Key header)
+
+**Request Body:**
+
+```json
+{
+  "user_id": "did:key:z6Mk...",
+  "status": "approved",
+  "nickname": "GardenCo",
+  "weekly_balance": 1000,
+  "one_time_balance": 500
+}
+```
+
+All fields except `user_id` are optional.
+
+**Response:** `200 OK`
+
+```json
+{
+  "user_id": "did:key:z6Mk...",
+  "organization": "Community Garden Network",
+  "nickname": "GardenCo",
+  "status": "approved",
+  "affiliate_logo": "https://example.com/logo.png",
+  "weekly_allocation": 1000,
+  "weekly_balance": 1000,
+  "one_time_balance": 500
+}
+```
+
+---
+
+## Schema: Affiliate
+
+```typescript
+interface Affiliate {
+  user_id: string;          // DID of the affiliate user
+  organization: string;     // Organization name
+  nickname: string | null;  // Optional display name
+  status: string;          // "pending" | "approved" | "rejected"
+  affiliate_logo: string | null;  // Logo URL
+  weekly_allocation: number;      // Weekly token allocation
+  weekly_balance: number;         // Current weekly balance
+  one_time_balance: number;       // One-time balance pool
+}
+```

@@ -1,0 +1,384 @@
+---
+title: 'Frontend Architecture'
+description: 'Next.js 15, React 19, Tailwind, Privy authentication, and account abstraction'
+---
+
+## Overview
+
+The SFLUV frontend is a modern React application built with:
+
+- **Next.js 15** - App Router, Server Components, Turbo mode
+- **React 19** - Latest React features
+- **Tailwind CSS** - Utility-first styling
+- **Radix UI** - Accessible component primitives
+- **Privy** - Wallet and authentication
+- **Permissionless SDK** - Account abstraction (smart wallets)
+- **viem** - Ethereum interactions
+
+## Project Structure
+
+```
+frontend/
+├── app/                     # Next.js App Router pages
+│   ├── page.tsx             # Landing page (merchant map)
+│   ├── settings/            # Role requests, merchant approval
+│   ├── proposer/            # Workflow builder, templates
+│   ├── improver/            # Workflow feed, step execution
+│   ├── voter/               # Voting queue
+│   ├── issuer/              # Credential management
+│   ├── admin/               # Admin panel (users, roles)
+│   ├── affiliates/          # Affiliate dashboard
+│   ├── wallets/             # Wallet management
+│   ├── map/                 # Full merchant map
+│   └── ...
+├── components/              # Reusable React components
+│   ├── ui/                  # Radix UI components (Button, Dialog, etc.)
+│   ├── wallets/             # Wallet-related components
+│   ├── workflows/           # Workflow components
+│   ├── locations/           # Map and location components
+│   └── ...
+├── context/                 # React Context providers
+│   ├── AppProvider.tsx      # Auth, user state, wallets
+│   ├── LocationProvider.tsx # Location/map state
+│   ├── ContactsProvider.tsx # Contacts state
+│   └── Providers.tsx        # Root provider wrapper
+├── types/                   # TypeScript interfaces
+│   ├── workflow.ts          # Workflow types
+│   ├── proposer.ts          # Proposer types
+│   ├── server.ts            # API response types
+│   └── ...
+├── lib/                     # Utility functions
+│   ├── constants.ts         # App constants (URLs, addresses)
+│   ├── abi/                 # Contract ABIs
+│   ├── paymaster/           # Account abstraction client
+│   └── wallets/             # Wallet utilities
+├── hooks/                   # Custom React hooks
+├── package.json
+├── tailwind.config.js
+└── tsconfig.json
+```
+
+---
+
+## Tech Stack
+
+### Core Dependencies
+
+`frontend/package.json:11-75`
+
+```json
+{
+  "dependencies": {
+    "next": "15.2.6",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "@privy-io/react-auth": "^2.21.2",
+    "permissionless": "^0.2.53",
+    "viem": "^2.33.3",
+    "ethers": "^6.15.0",
+    "@citizenwallet/sdk": "^2.0.115",
+    "@radix-ui/react-dialog": "latest",
+    "@radix-ui/react-select": "latest",
+    "tailwindcss": "^3.4.17",
+    "lucide-react": "^0.454.0",
+    "react-hook-form": "^7.62.0",
+    "zod": "^3.25.76",
+    "@vis.gl/react-google-maps": "^1.5.5"
+  }
+}
+```
+
+### Key Libraries
+
+- **Privy** - Embedded wallet creation, social login, JWT authentication
+- **Permissionless** - ERC-4337 account abstraction (smart wallets)
+- **viem** - Modern Ethereum library (faster than ethers)
+- **Radix UI** - Accessible, unstyled component primitives
+- **React Hook Form + Zod** - Form validation
+- **Google Maps React** - Merchant location map
+
+---
+
+## App Router Structure
+
+### Pages by Role
+
+```
+app/
+├── page.tsx                     # Landing: Merchant map
+├── settings/page.tsx            # Role requests (proposer, improver, affiliate)
+├── proposer/
+│   ├── page.tsx                 # Workflow builder
+│   └── templates/page.tsx       # Template library
+├── improver/page.tsx            # Workflow feed (available steps)
+├── your-opportunities/page.tsx  # Improver opportunities dashboard
+├── voter/page.tsx               # Workflow vote queue
+├── issuer/page.tsx              # Credential grant/revoke
+├── admin/page.tsx               # Admin panel (side-tab layout)
+├── affiliates/page.tsx          # Affiliate events dashboard
+├── wallets/page.tsx             # Wallet management
+├── contacts/page.tsx            # Contact CRUD
+├── calendar/page.tsx            # Workflow calendar view
+├── verify/page.tsx              # Email verification flow
+├── merchant-status/page.tsx     # W9 compliance status
+├── unwrap/page.tsx              # Token unwrapping UI
+└── map/page.tsx                 # Full-screen merchant map
+```
+
+### Route Protection
+
+Pages check role flags from `AppProvider` and redirect if unauthorized:
+
+```tsx
+// app/proposer/page.tsx
+'use client'
+
+import { useApp } from '@/context/AppProvider'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
+
+export default function ProposerPage() {
+  const { user, status } = useApp()
+  const router = useRouter()
+  
+  useEffect(() => {
+    if (status === 'authenticated' && !user?.isProposer && !user?.isAdmin) {
+      router.push('/settings')  // Redirect to role request
+    }
+  }, [status, user])
+  
+  if (status === 'loading') return <div>Loading...</div>
+  
+  return (
+    <div>
+      <h1>Workflow Builder</h1>
+      {/* Proposer content */}
+    </div>
+  )
+}
+```
+
+---
+
+## Authentication Flow
+
+### 1. User Logs In (Privy)
+
+`frontend/context/AppProvider.tsx:614-631`
+
+```tsx
+const { getAccessToken, authenticated, login: privyLogin, user: privyUser } = usePrivy()
+
+const login = async () => {
+  if (!privyAuthenticated) {
+    await privyLogin()  // Opens Privy modal
+  }
+}
+```
+
+Privy supports:
+- Email/SMS login
+- Social login (Google, Twitter, Discord)
+- Wallet connection (MetaMask, Coinbase, etc.)
+- Embedded wallet creation
+
+### 2. Frontend Initializes User
+
+`frontend/context/AppProvider.tsx:284-313`
+
+```tsx
+const _userLogin = async () => {
+  // 1. Try to fetch user from backend
+  let userResponse = await _getUser()
+  
+  // 2. If user doesn't exist, create account
+  if (userResponse === null) {
+    await _postUser()
+    userResponse = await _getUser()
+  }
+  
+  // 3. Set user state
+  await _userResponseToUser(userResponse)
+  
+  // 4. Initialize wallets
+  await _initWallets(userResponse.wallets)
+  
+  // 5. Fetch ponder subscriptions
+  await getPonderSubscriptions()
+  
+  setStatus('authenticated')
+}
+```
+
+### 3. API Calls Use authFetch
+
+`frontend/context/AppProvider.tsx:330-339`
+
+```tsx
+const authFetch = async (endpoint: string, options: RequestInit = {}): Promise<Response> => {
+  // Get JWT token from Privy
+  const accessToken = await getAccessToken()
+  if (!accessToken) throw new Error("no access token")
+  
+  // Add Access-Token header
+  const headers: HeadersInit = {
+    ...options.headers,
+    "Access-Token": accessToken,
+  }
+  
+  return await fetch(BACKEND + endpoint, { ...options, headers })
+}
+```
+
+**Usage in components**:
+
+```tsx
+const { authFetch } = useApp()
+
+const createWorkflow = async (data: WorkflowRequest) => {
+  const res = await authFetch('/proposers/workflows', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
+  return await res.json()
+}
+```
+
+---
+
+## Wallet Management
+
+SFLUV supports both EOA (externally owned accounts) and smart wallets.
+
+### Wallet Initialization
+
+`frontend/context/AppProvider.tsx:394-450`
+
+```tsx
+const _initWallets = async (extWallets?: WalletResponse[]) => {
+  const managedPrivyWallets = getManagedPrivyWallets()  // Privy-managed wallets
+  
+  let wResults: Promise<AppWallet>[] = []
+  
+  for (const privyWallet of managedPrivyWallets) {
+    // 1. Initialize EOA wallet
+    let extWallet = extWallets.find(w => w.eoa_address === privyWallet.address && w.is_eoa)
+    wResults.push(_initEOAWallet(privyWallet, extWallet, i))
+    
+    // 2. Initialize smart wallets (account abstraction)
+    let smartWallets = extWallets.filter(w => 
+      w.eoa_address === privyWallet.address && !w.is_eoa
+    )
+    
+    for (const extSmartWallet of smartWallets) {
+      wResults.push(_initSmartWallet(privyWallet, extSmartWallet, index, i))
+    }
+  }
+  
+  let wallets = await Promise.all(wResults)
+  setWallets(wallets)
+}
+```
+
+### AppWallet Class
+
+`frontend/lib/wallets/wallets.ts`
+
+```tsx
+export class AppWallet {
+  owner: ConnectedWallet     // Privy wallet (EOA)
+  name: string               // Display name
+  type: 'eoa' | 'smartwallet'
+  address: string            // Wallet address
+  balance: bigint            // SFLUV balance
+  isRedeemer: boolean        // Merchant permission
+  isMinter: boolean          // Minting permission
+  
+  async init() {
+    // Initialize smart account client, fetch balance
+  }
+  
+  async sendTransaction(to: string, amount: bigint) {
+    // Execute transfer via smart wallet or EOA
+  }
+}
+```
+
+---
+
+## State Management
+
+### Global State (Context)
+
+All global state managed via React Context:
+
+- **AppProvider** - User, auth, wallets
+- **LocationProvider** - Merchant locations
+- **ContactsProvider** - User contacts
+- **TransactionProvider** - Transaction history
+
+### Local State (useState)
+
+Component-level state for UI:
+
+```tsx
+const [modalOpen, setModalOpen] = useState(false)
+const [loading, setLoading] = useState(false)
+const [workflows, setWorkflows] = useState<Workflow[]>([])
+```
+
+---
+
+## Styling
+
+### Tailwind CSS
+
+Utility-first CSS framework:
+
+```tsx
+<button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+  Create Workflow
+</button>
+```
+
+### Radix UI Components
+
+Accessible primitives styled with Tailwind:
+
+```tsx
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+
+<Dialog open={modalOpen} onOpenChange={setModalOpen}>
+  <DialogContent>
+    <DialogTitle>Create Workflow</DialogTitle>
+    {/* Modal content */}
+  </DialogContent>
+</Dialog>
+```
+
+### Component Patterns
+
+Reusable components in `components/ui/`:
+
+- `Button` - Styled button with variants
+- `Input` - Form input
+- `Dialog` - Modal dialogs
+- `Select` - Dropdown select
+- `Card` - Container with shadow/border
+- `Badge` - Status badges
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="React Context" icon="react" href="/dev/context">
+    Deep dive into AppProvider and LocationProvider
+  </Card>
+  <Card title="Components" icon="cube" href="/dev/components">
+    Component structure and patterns
+  </Card>
+  <Card title="Testing" icon="flask" href="/dev/testing">
+    Frontend testing setup
+  </Card>
+</CardGroup>

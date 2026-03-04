@@ -1,0 +1,353 @@
+---
+title: Roles
+description: Overview of all user roles in the SFLUV platform including proposer, improver, voter, issuer, merchant, affiliate, and admin
+---
+
+## Overview
+
+SFLUV is a multi-role platform where users can hold multiple roles simultaneously. Each role grants specific permissions and responsibilities within the governance and workflow ecosystem.
+
+## Core Roles
+
+### Proposer
+
+Proposers create and manage workflows that define community projects.
+
+<AccordionGroup>
+  <Accordion title="How to Become a Proposer">
+    1. Submit a proposer request via `/settings` with organization name and notification email
+    2. Verify your email address
+    3. Wait for admin approval
+    4. Receive email notification when approved
+  </Accordion>
+
+  <Accordion title="Proposer Capabilities">
+    - Create new workflows with custom steps and roles
+    - Manage active workflows and monitor progress
+    - Create and use workflow templates for reuse
+    - Delete workflows in `pending` status
+    - View workflow vote status and results
+    - Assign supervisors to workflows
+    - Propose workflow series deletions
+  </Accordion>
+
+  <Accordion title="Proposer Properties">
+    ```typescript
+    {
+      user_id: string
+      organization: string
+      email: string  // notification email
+      status: "pending" | "approved"
+      created_at: number
+      updated_at: number
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Proposers cannot vote on their own workflow proposals. This ensures unbiased governance decisions.
+</Note>
+
+### Improver
+
+Improvers complete workflow steps and earn bounties for their work.
+
+<AccordionGroup>
+  <Accordion title="How to Become an Improver">
+    1. Submit an improver request via `/settings` with first name, last name, and email
+    2. Verify your email address
+    3. Wait for admin approval
+    4. Set a primary rewards account (Ethereum address) for receiving bounties
+  </Accordion>
+
+  <Accordion title="Improver Capabilities">
+    - View available workflow steps matching their credentials
+    - Claim and start workflow steps
+    - Submit step completions with photos, text, and dropdown responses
+    - Report if a step is not possible to complete
+    - Claim entire workflow series for recurring work
+    - Set absence periods to skip recurring workflow instances
+    - Track unpaid bounties and request payout retries
+    - Claim workflow manager role for series oversight
+  </Accordion>
+
+  <Accordion title="Improver Properties">
+    ```typescript
+    {
+      user_id: string
+      first_name: string
+      last_name: string
+      email: string
+      primary_rewards_account: string  // Ethereum address
+      status: "pending" | "approved"
+      created_at: number
+      updated_at: number
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Info>
+  Improvers must hold all required credentials for a workflow role to claim steps assigned to that role.
+</Info>
+
+### Voter
+
+Voters participate in governance by approving or denying workflow proposals.
+
+<AccordionGroup>
+  <Accordion title="How to Become a Voter">
+    Voters are designated by admins. Contact platform administrators to request voter status.
+  </Accordion>
+
+  <Accordion title="Voter Capabilities">
+    - View pending workflow proposals
+    - Vote to approve or deny workflows
+    - Add comments to votes for context
+    - View vote tallies and quorum progress
+    - Vote on workflow deletion proposals
+  </Accordion>
+
+  <Accordion title="Voting Rules">
+    - Voters **cannot** vote on workflows proposed by themselves
+    - Each voter can cast one vote per workflow: approve or deny
+    - Votes are recorded with optional comments
+    - Quorum requires 50% of eligible voters to participate
+  </Accordion>
+</AccordionGroup>
+
+<Warning>
+  Once a vote is cast, it cannot be changed. Consider carefully before submitting your decision.
+</Warning>
+
+### Issuer
+
+Issuers grant and revoke credentials that control access to workflow steps.
+
+<AccordionGroup>
+  <Accordion title="How to Become an Issuer">
+    Issuers are designated by admins. This role requires trust and understanding of credential requirements.
+  </Accordion>
+
+  <Accordion title="Issuer Capabilities">
+    - View all improvers and their current credentials
+    - Grant credentials to improvers (e.g., `dpw_certified`, `sfluv_verifier`)
+    - Revoke credentials from improvers
+    - View credential history and active credential holders
+  </Accordion>
+
+  <Accordion title="Credential Types">
+    Currently supported credentials:
+    - **dpw_certified**: Department of Public Works certification
+    - **sfluv_verifier**: SFLUV platform verification credential
+    
+    Additional credential types can be added by admins as needed.
+  </Accordion>
+</AccordionGroup>
+
+### Supervisor
+
+Supervisors provide oversight for workflows requiring validation or reporting.
+
+<AccordionGroup>
+  <Accordion title="How to Become a Supervisor">
+    1. Submit a supervisor request via `/settings` with organization and email
+    2. Verify your email address
+    3. Wait for admin approval
+    4. Be assigned to workflows by proposers
+  </Accordion>
+
+  <Accordion title="Supervisor Capabilities">
+    - View all workflows where assigned as supervisor
+    - Access all step submission data and photos
+    - Export workflow data to CSV format
+    - Download ZIP archives of all workflow photos
+    - Filter and search supervised workflows by date and status
+    - Receive supervisor bounty upon workflow completion
+  </Accordion>
+
+  <Accordion title="Supervisor Assignment">
+    - Proposers assign supervisors when creating workflows
+    - Supervisor bounty is set per workflow
+    - Supervisors receive payout when workflow reaches `completed` status
+    - Multiple workflows can share the same supervisor
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  Supervisors have read-only access to workflow data. They cannot modify steps or submissions.
+</Note>
+
+### Merchant
+
+Merchants accept SFLUV currency for goods and services.
+
+<AccordionGroup>
+  <Accordion title="How to Become a Merchant">
+    1. Request merchant status via `/settings`
+    2. Provide business location information
+    3. Submit W9 form via Wordpress webhook integration
+    4. Wait for admin approval
+  </Accordion>
+
+  <Accordion title="Merchant Capabilities">
+    - Accept wrapped HONEY tokens as payment
+    - Appear on the merchant map at `/map`
+    - Unwrap tokens to base HONEY once W9 verified
+    - Manage business contact information
+  </Accordion>
+
+  <Accordion title="W9 Compliance">
+    Merchants must complete W9 submission to unlock unwrapping functionality:
+    - W9 submissions arrive via Wordpress webhook
+    - Eligibility checked before unwrap operations
+    - Compliance status visible at `/merchant-status`
+  </Accordion>
+</AccordionGroup>
+
+### Affiliate
+
+Affiliates distribute token allocations through events and QR codes.
+
+<AccordionGroup>
+  <Accordion title="How to Become an Affiliate">
+    1. Submit an affiliate request via `/settings`
+    2. Wait for admin approval and weekly allocation assignment
+    3. Access affiliate dashboard at `/affiliates`
+  </Accordion>
+
+  <Accordion title="Affiliate Capabilities">
+    - Create events with QR codes for token distribution
+    - Set event expiration times
+    - Generate redemption codes with custom amounts
+    - Track event redemptions and remaining balances
+    - View weekly allocation and available balance
+    - Receive automatic refunds for unredeemed event funds
+  </Accordion>
+
+  <Accordion title="Affiliate System Details">
+    See the [Affiliates concept page](/concepts/affiliates) for comprehensive information on:
+    - Event creation and management
+    - Payout scheduling and allocation
+    - Weekly balance recomputation
+    - QR code redemption flow
+  </Accordion>
+</AccordionGroup>
+
+## Admin Role
+
+Admins have superuser access and can perform all operations across the platform.
+
+### Admin Capabilities
+
+<CardGroup cols={2}>
+  <Card title="Role Management" icon="user-gear">
+    - Approve/deny proposer requests
+    - Approve/deny improver requests
+    - Approve/deny supervisor requests
+    - Designate voters and issuers
+    - Manage merchant approvals
+    - Configure affiliate allocations
+  </Card>
+
+  <Card title="Workflow Management" icon="diagram-project">
+    - Force approve workflows (bypass voting)
+    - Create default workflow templates
+    - View all workflows across all proposers
+    - Access all submission data and photos
+    - Force approve workflow deletions
+  </Card>
+
+  <Card title="Credential Management" icon="certificate">
+    - Create new credential types
+    - View all credentials across all users
+    - Act as issuer with full privileges
+  </Card>
+
+  <Card title="System Operations" icon="server">
+    - Access admin panel at `/admin`
+    - Use X-Admin-Key header for scripted API calls
+    - Bypass all role checks
+    - View platform-wide statistics
+    - Manage faucet allocations
+  </Card>
+</CardGroup>
+
+<Warning>
+  Admin users bypass all role checks. Admin actions are logged for audit purposes.
+</Warning>
+
+### Admin Middleware
+
+The backend enforces admin privileges through middleware:
+
+```go
+// From router.go
+withAdmin()    // Requires admin role
+withProposer() // Admin bypasses
+withImprover() // Admin bypasses
+withVoter()    // Admin bypasses
+withIssuer()   // Admin bypasses
+withAffiliate() // Admin bypasses
+```
+
+## Multi-Role Users
+
+Users can hold multiple roles simultaneously:
+
+<Steps>
+  <Step title="Request Multiple Roles">
+    Submit separate requests for each role via `/settings`
+  </Step>
+  
+  <Step title="Role-Specific UI">
+    The sidebar navigation adapts to show pages for all active roles
+  </Step>
+  
+  <Step title="Context Switching">
+    Navigate between role-specific pages without re-authentication
+  </Step>
+</Steps>
+
+<Info>
+  Example: A user can be both an improver (completing steps) and a proposer (creating workflows), with access to both `/improver` and `/proposer` dashboards.
+</Info>
+
+## Role Flags in User Context
+
+The frontend `AppProvider` exposes role flags:
+
+```typescript
+interface User {
+  id: string
+  email: string
+  isProposer: boolean
+  isImprover: boolean
+  isVoter: boolean
+  isIssuer: boolean
+  isMerchant: boolean
+  isAffiliate: boolean
+  isAdmin: boolean
+  isSupervisor: boolean
+}
+```
+
+Pages use these flags to gate access and render role-specific UI.
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Workflows" icon="diagram-project" href="/concepts/workflows">
+    Understand workflow creation and lifecycle
+  </Card>
+  <Card title="Credentials" icon="certificate" href="/concepts/credentials">
+    Learn about the credential system
+  </Card>
+  <Card title="Voting" icon="check-to-slot" href="/concepts/voting">
+    How governance voting works
+  </Card>
+  <Card title="Affiliates" icon="handshake" href="/concepts/affiliates">
+    Affiliate event and payout system
+  </Card>
+</CardGroup>

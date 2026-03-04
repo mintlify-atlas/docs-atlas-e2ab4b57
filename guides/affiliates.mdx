@@ -1,0 +1,413 @@
+---
+title: 'Affiliate Guide'
+description: 'Learn how to create funded events, manage payouts, and track affiliate balance'
+---
+
+# Affiliate Guide
+
+Affiliates create and fund events that distribute SFLuv tokens to participants via redemption codes. This guide covers event creation, code management, balance tracking, and payout processing.
+
+## Getting Started
+
+### Requesting Affiliate Access
+
+<Steps>
+  <Step title="Navigate to Settings">
+    Go to `/settings` and request affiliate status if you're not already approved.
+  </Step>
+  
+  <Step title="Wait for Admin Approval">
+    An admin will review your request and assign affiliate role with a weekly allocation.
+  </Step>
+  
+  <Step title="Access the Affiliates Panel">
+    Once approved, navigate to `/affiliates` to see your dashboard.
+  </Step>
+</Steps>
+
+## Understanding Affiliate Balance
+
+### Weekly Allocation
+
+Affiliates receive a weekly SFLuv token allocation to fund events:
+
+- **Weekly Allocation**: Total SFLuv available each week
+- **Available Balance**: Remaining unallocated tokens for the current week
+- **Allocated**: Tokens assigned to active events
+- **Redeemed**: Tokens claimed by event participants
+
+<Info>
+  Your weekly allocation resets at the start of each week. Unused balance does NOT roll over.
+</Info>
+
+### Viewing Your Balance
+
+<Steps>
+  <Step title="Open Affiliates Panel">
+    Navigate to `/affiliates`.
+  </Step>
+  
+  <Step title="Check Balance Badge">
+    See your current balance in the header:
+    - **Available / Weekly Allocation** (e.g., "450/500 SFLuv")
+    - Remaining tokens you can allocate to new events
+  </Step>
+</Steps>
+
+## Creating Events
+
+### Event Basics
+
+Events are occasions where you distribute SFLuv tokens to participants:
+- **Event Title**: Descriptive name (e.g., "Tech Meetup March 2024")
+- **Event Date**: When the event occurs
+- **Allocation**: How many SFLuv tokens to allocate
+- **Code Count**: How many redemption codes to generate
+- **Per-Code Value**: Allocation ÷ Code Count
+
+### Creating a New Event
+
+<Steps>
+  <Step title="Click '+ New Event'">
+    In the affiliates panel, click the "+ New Event" button.
+  </Step>
+  
+  <Step title="Enter Event Details">
+    Fill in the modal:
+    - **Event Title**: Descriptive name for the event
+    - **Event Date**: Date of the event
+    - **Allocation Amount**: Total SFLuv to allocate (must be ≤ available balance)
+    - **Code Count**: Number of redemption codes to generate
+    
+    The per-code value is calculated automatically: `Allocation ÷ Code Count`
+  </Step>
+  
+  <Step title="Review and Submit">
+    Verify:
+    - Allocation doesn't exceed available balance
+    - Code count matches expected participants
+    - Per-code value is appropriate
+    
+    Click "Create Event" to submit.
+  </Step>
+  
+  <Step title="Event Created">
+    The event appears in your event list.
+    
+    Redemption codes are generated automatically and accessible via the event detail view.
+  </Step>
+</Steps>
+
+<Tip>
+  Plan code counts conservatively. Extra unredeemed codes still lock up your allocation for the week.
+</Tip>
+
+### Event Creation Example
+
+**Scenario**: You're hosting a community tech meetup with 20 attendees.
+
+- **Event Title**: "Community Tech Meetup - March 15"
+- **Event Date**: 2024-03-15
+- **Allocation**: 200 SFLuv
+- **Code Count**: 20
+- **Per-Code Value**: 10 SFLuv each
+
+<Info>
+  Each of the 20 attendees can redeem one code for 10 SFLuv.
+</Info>
+
+## Managing Events
+
+### Viewing Event Details
+
+<Steps>
+  <Step title="Click an Event Card">
+    In the affiliates panel, click on any event to open details.
+  </Step>
+  
+  <Step title="View Event Information">
+    The modal shows:
+    - Event title and date
+    - Total allocation
+    - Code count and per-code value
+    - Redemption status (redeemed/total codes)
+    - List of redemption codes
+  </Step>
+  
+  <Step title="Access Redemption Codes">
+    View all codes for the event:
+    - Each code is a unique string
+    - Codes can be redeemed once each
+    - Track which codes have been redeemed
+  </Step>
+</Steps>
+
+### Distributing Redemption Codes
+
+Share codes with event participants:
+
+<Steps>
+  <Step title="Export Codes">
+    From the event detail modal, export or copy codes:
+    - Copy individual codes
+    - Export all codes to CSV
+    - Generate QR codes (if supported)
+  </Step>
+  
+  <Step title="Distribute to Participants">
+    Share codes via:
+    - Printed cards at the event
+    - Email to registered attendees
+    - QR codes on event materials
+    - Direct message to participants
+  </Step>
+  
+  <Step title="Track Redemptions">
+    Monitor which codes have been redeemed:
+    - Check event details for redemption count
+    - See which codes are still available
+  </Step>
+</Steps>
+
+<Warning>
+  Each code can only be redeemed once. Distribute codes securely to prevent unauthorized redemptions.
+</Warning>
+
+### Deleting Events
+
+You can delete events to reclaim unredeemed allocations:
+
+<Steps>
+  <Step title="Open Event Details">
+    Click on the event you want to delete.
+  </Step>
+  
+  <Step title="Click 'Delete Event'">
+    Confirm the deletion.
+  </Step>
+  
+  <Step title="Allocation Refunded">
+    Unredeemed tokens are returned to your available balance:
+    - Redeemed codes remain valid (already claimed)
+    - Unredeemed codes are invalidated
+    - Available balance increases by unredeemed amount
+  </Step>
+</Steps>
+
+<Info>
+  Delete events to free up allocation if fewer participants show up than expected.
+</Info>
+
+## Redemption Process
+
+Participants redeem codes via the public redemption page:
+
+<Steps>
+  <Step title="User Visits Redemption Page">
+    Participants go to the redemption URL (e.g., `/redeem` or event-specific link).
+  </Step>
+  
+  <Step title="Enter Redemption Code">
+    User inputs the unique code you provided.
+  </Step>
+  
+  <Step title="Connect Wallet">
+    User connects their Berachain wallet to receive tokens.
+  </Step>
+  
+  <Step title="Redeem Tokens">
+    System validates the code and transfers SFLuv to user's wallet.
+  </Step>
+  
+  <Step title="Code Marked as Redeemed">
+    The code can no longer be used. Redemption count increments.
+  </Step>
+</Steps>
+
+## Payout Scheduling
+
+Affiliate payouts are processed automatically on a recurring schedule:
+
+- **Schedule**: Determined by `AffiliateScheduler` in backend
+- **Payout Trigger**: System checks for eligible affiliates
+- **Payment**: SFLuv transferred to affiliate's primary rewards account
+- **Tracking**: Payouts recorded in transaction history
+
+<Info>
+  Payout schedules and eligibility criteria are managed by admins. Contact admins for payout policy details.
+</Info>
+
+## Best Practices for Affiliates
+
+<AccordionGroup>
+  <Accordion title="Plan Events Strategically">
+    Maximize impact of your weekly allocation:
+    - Schedule events throughout the week
+    - Estimate participant counts accurately
+    - Adjust per-code values based on event type
+    - Don't create events for more than your available balance
+  </Accordion>
+  
+  <Accordion title="Manage Code Distribution">
+    Ensure codes reach the right people:
+    - Verify participant registration before distributing codes
+    - Use secure distribution methods (email, printed cards)
+    - Don't post codes publicly
+    - Track who received which code (for support)
+    - Provide clear redemption instructions
+  </Accordion>
+  
+  <Accordion title="Monitor Redemptions">
+    Stay aware of event performance:
+    - Check redemption rates after events
+    - Delete events with low redemption to free up balance
+    - Adjust future code counts based on redemption patterns
+    - Follow up with participants who haven't redeemed
+  </Accordion>
+  
+  <Accordion title="Optimize Allocation Usage">
+    Make the most of your weekly budget:
+    - Front-load high-priority events early in the week
+    - Delete low-redemption events to reclaim balance
+    - Don't over-allocate to single events
+    - Save buffer for unexpected opportunities
+  </Accordion>
+  
+  <Accordion title="Support Participants">
+    Help users redeem successfully:
+    - Provide clear redemption instructions
+    - Include wallet setup guidance
+    - Offer support during the event
+    - Troubleshoot redemption issues
+    - Share SFLuv ecosystem information
+  </Accordion>
+  
+  <Accordion title="Track Your Impact">
+    Measure event success:
+    - Redemption rate (redeemed/total codes)
+    - Average per-code value effectiveness
+    - Participant feedback
+    - Repeat attendance at future events
+    - SFLuv adoption and usage post-event
+  </Accordion>
+</AccordionGroup>
+
+## Updating Affiliate Profile
+
+Customize your affiliate presence:
+
+<Steps>
+  <Step title="Access Affiliate Settings">
+    In the affiliates panel, look for profile or logo management options.
+  </Step>
+  
+  <Step title="Upload Logo">
+    Use `PUT /affiliates/logo` to upload your organization's logo.
+    
+    Logo appears on:
+    - Affiliate dashboard
+    - Event listings
+    - Redemption pages (if applicable)
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Can't create event - insufficient balance">
+    Your allocation exceeds available balance:
+    - Check available balance in dashboard header
+    - Reduce event allocation amount
+    - Delete old events to reclaim unredeemed tokens
+    - Wait for weekly allocation reset
+    
+    **Solution**: Adjust allocation or free up balance by deleting low-redemption events.
+  </Accordion>
+  
+  <Accordion title="Redemption code not working">
+    Possible reasons:
+    - Code already redeemed
+    - Event deleted (unredeemed codes invalidated)
+    - Code entered incorrectly
+    - System error
+    
+    **Solution**: Verify code hasn't been redeemed. Check event status. Confirm correct code entry.
+  </Accordion>
+  
+  <Accordion title="Event won't delete">
+    Check:
+    - You're logged in with affiliate access
+    - Event belongs to your affiliate account
+    - Network connection is stable
+    
+    **Solution**: Refresh page and try again. Contact admins if issue persists.
+  </Accordion>
+  
+  <Accordion title="Balance not updating after event deletion">
+    There may be a delay:
+    - Refresh the page
+    - Check event list to confirm deletion
+    - Verify unredeemed code count before deletion
+    
+    **Solution**: Wait a moment and refresh. Contact admins if balance doesn't update.
+  </Accordion>
+  
+  <Accordion title="Payout not received">
+    Check:
+    - Payout schedule (may not be immediate)
+    - Primary rewards account is set correctly
+    - Wallet address is valid
+    - Check blockchain explorer for transaction
+    
+    **Solution**: Contact admins to verify payout schedule and check for any payout errors.
+  </Accordion>
+</AccordionGroup>
+
+## Admin Management
+
+Admins can manage affiliates via the admin panel:
+
+- **View All Affiliates**: `GET /admin/affiliates`
+- **Update Affiliate**: `PUT /admin/affiliates`
+  - Adjust weekly allocation
+  - Approve/revoke affiliate status
+  - Modify affiliate settings
+
+<Info>
+  If you need changes to your weekly allocation or affiliate settings, contact an admin.
+</Info>
+
+## API Endpoints Reference
+
+**Affiliate routes** (require affiliate or admin role):
+
+- `POST /affiliates/request` - Request affiliate status
+- `PUT /affiliates/logo` - Update affiliate logo
+- `GET /affiliates/balance` - Check current balance
+- `POST /affiliates/events` - Create new event
+- `GET /affiliates/events` - List your events
+- `GET /affiliates/events/{event}` - Get event details and codes
+- `DELETE /affiliates/events/{event}` - Delete event
+- `GET /affiliates/{user_id}` - Get affiliate details
+
+**Public redemption route**:
+- `POST /redeem` - Redeem code (public, no auth required)
+
+**Admin affiliate routes**:
+- `GET /admin/affiliates` - List all affiliates
+- `PUT /admin/affiliates` - Update affiliate settings
+
+**Admin event routes** (for administrative management):
+- `POST /events` - Create event (admin)
+- `POST /events/{event_id}/codes` - Generate codes (admin)
+- `GET /events/{event}` - Get event codes (admin)
+- `DELETE /events/{event}` - Delete event (admin)
+- `GET /events` - List all events (admin)
+- `POST /drain` - Drain faucet balance (admin)
+- `GET /balance` - Check remaining faucet balance (admin)
+
+## Related Resources
+
+- [Affiliate API](/api/affiliates)
+- [Affiliate Events API](/api/affiliate-events)
+- [Berachain Wallet Setup](https://docs.berachain.com/)

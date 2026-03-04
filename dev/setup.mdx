@@ -1,0 +1,263 @@
+---
+title: 'Local Development Setup'
+description: 'Prerequisites, installation, and running SFLUV services locally'
+---
+
+## Prerequisites
+
+Before setting up SFLUV locally, ensure you have the following installed:
+
+### Required Software
+
+- **Go 1.24+** - Backend server language
+- **Node.js 18+** - Frontend and Ponder indexer
+- **pnpm** - Package manager for frontend/Ponder
+- **PostgreSQL 14+** - Database (3 separate databases required)
+- **Foundry** (anvil, cast) - For local blockchain testing
+
+### Optional Tools
+
+- **psql** - PostgreSQL command-line client
+- **git** - Version control
+
+## Project Structure
+
+```
+app/
+├── backend/          # Go server (API + handlers)
+├── frontend/         # Next.js 15 / React 19 app
+├── ponder/          # Blockchain indexer (TypeScript)
+├── scripts/         # Test and deployment scripts
+└── docs/            # Documentation
+```
+
+## Database Setup
+
+SFLUV requires three PostgreSQL databases:
+
+1. **app** - Users, roles, workflows, votes, credentials
+2. **bot** - Faucet events, redemption codes, W9 submissions
+3. **ponder** - Indexed blockchain transfers and approval events
+
+### Create Databases
+
+```bash
+psql -U postgres
+CREATE DATABASE app;
+CREATE DATABASE bot;
+CREATE DATABASE ponder;
+\q
+```
+
+Tables are created automatically on first run by each service.
+
+## Installation
+
+### 1. Clone the Repository
+
+```bash
+git clone <repository-url>
+cd app
+```
+
+### 2. Backend Setup
+
+```bash
+cd backend
+
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your configuration
+# See Environment Variables page for details
+
+# Install Go dependencies (automatic on first run)
+go mod download
+```
+
+### 3. Frontend Setup
+
+```bash
+cd frontend
+
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your configuration
+
+# Install dependencies
+pnpm install
+```
+
+### 4. Ponder Setup
+
+```bash
+cd ponder
+
+# Copy environment template
+cp .env.example .env
+
+# Edit .env with your configuration
+
+# Install dependencies
+pnpm install
+```
+
+## Running Services
+
+### Development Mode (All Services)
+
+Run each service in a separate terminal:
+
+#### Terminal 1: Backend
+
+```bash
+cd backend
+go run ./backend
+```
+
+Backend runs on `http://localhost:8080`
+
+#### Terminal 2: Frontend
+
+```bash
+cd frontend
+pnpm dev
+```
+
+Frontend runs on `http://localhost:3000`
+
+#### Terminal 3: Ponder (Blockchain Indexer)
+
+```bash
+cd ponder
+pnpm dev
+```
+
+Ponder runs on `http://localhost:42069`
+
+<Note>
+**Ponder should not be changed** - it's a stable blockchain indexer that listens to ERC20 events and POSTs to `/ponder/callback`.
+</Note>
+
+## Running Tests
+
+### Backend Tests
+
+```bash
+cd backend
+go test -vet=off ./db ./handlers ./router ./structs
+```
+
+### Frontend Type-Check
+
+```bash
+cd frontend
+npx tsc --noEmit
+```
+
+<Warning>
+Many pre-existing TypeScript errors exist in unrelated files. Focus on new/changed files only.
+</Warning>
+
+### Frontend Linting
+
+```bash
+cd frontend
+pnpm lint
+```
+
+## Local HTTPS Setup (Optional)
+
+For testing features requiring HTTPS (like wallet connections):
+
+1. Generate local certificates:
+
+```bash
+# Using mkcert
+mkcert -install
+mkcert localhost 127.0.0.1
+```
+
+2. Configure backend `.env`:
+
+```bash
+TLS_CERT_FILE=/path/to/localhost.crt
+TLS_KEY_FILE=/path/to/localhost.key
+TLS_PORT=8443
+```
+
+3. Backend will serve on both HTTP (8080) and HTTPS (8443)
+
+## Verifying Setup
+
+### Check Backend
+
+```bash
+curl http://localhost:8080/locations
+```
+
+Should return JSON with merchant locations.
+
+### Check Frontend
+
+Visit `http://localhost:3000` - you should see the merchant map landing page.
+
+### Check Ponder
+
+```bash
+curl http://localhost:42069/health
+```
+
+Should return health status.
+
+## Common Issues
+
+### Port Already in Use
+
+```bash
+# Find process using port
+lsof -ti :8080
+
+# Kill process
+kill -9 <PID>
+```
+
+### Database Connection Errors
+
+- Verify PostgreSQL is running: `pg_isready`
+- Check database credentials in `.env`
+- Ensure all three databases exist
+
+### Go Module Issues
+
+```bash
+cd backend
+go mod tidy
+go clean -modcache
+```
+
+### Node Module Issues
+
+```bash
+cd frontend  # or ponder
+rm -rf node_modules pnpm-lock.yaml
+pnpm install
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Environment Variables" icon="gear" href="/dev/environment">
+    Configure backend, frontend, and Ponder environment variables
+  </Card>
+  <Card title="Database Schema" icon="database" href="/dev/database">
+    Learn about the three database schemas
+  </Card>
+  <Card title="Backend Architecture" icon="server" href="/dev/backend-overview">
+    Understand the Go backend structure
+  </Card>
+  <Card title="Frontend Architecture" icon="browser" href="/dev/frontend-overview">
+    Explore the Next.js frontend
+  </Card>
+</CardGroup>

@@ -1,0 +1,479 @@
+---
+title: 'Database Setup'
+description: 'PostgreSQL database architecture: app, bot, and ponder databases'
+---
+
+## Overview
+
+SFLUV uses three separate PostgreSQL databases, each serving a distinct purpose:
+
+1. **app** - Core application data (users, workflows, roles, credentials)
+2. **bot** - Faucet operations (events, redemption codes, W9 submissions)
+3. **ponder** - Blockchain indexer data (transfer events, approvals)
+
+## Connection Configuration
+
+All three databases share the same PostgreSQL credentials:
+
+```bash
+# backend/.env
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_URL=localhost:5432
+```
+
+The backend connects to each database by name:
+
+```go
+// backend/main.go
+bdb, err := db.PgxDB("bot")
+adb, err := db.PgxDB("app")
+pdb, err := db.PgxDB("ponder")
+```
+
+## Database Initialization
+
+Tables are created automatically on first startup:
+
+```go
+// Backend creates app tables
+appDb := db.App(adb, appLogger)
+err = appDb.CreateTables()
+
+// Backend creates bot tables
+botDb := db.Bot(bdb)
+err = botDb.CreateTables(defaultAdminId)
+
+// Ponder creates its own tables
+ponderDb := db.Ponder(pdb, appLogger)
+err = ponderDb.Ping()
+```
+
+---
+
+## 1. App Database
+
+**Purpose**: Core application data for multi-role governance and workflow management.
+
+### Key Tables
+
+#### `users`
+
+User accounts with role flags:
+
+```sql
+CREATE TABLE users (
+  id TEXT PRIMARY KEY,                -- Privy DID
+  contact_name TEXT,
+  contact_email TEXT,
+  contact_phone TEXT,
+  paypal_eth TEXT,                    -- PayPal withdrawal address
+  is_admin BOOLEAN DEFAULT FALSE,
+  is_merchant BOOLEAN DEFAULT FALSE,
+  is_organizer BOOLEAN DEFAULT FALSE,
+  is_improver BOOLEAN DEFAULT FALSE,
+  is_proposer BOOLEAN DEFAULT FALSE,
+  is_voter BOOLEAN DEFAULT FALSE,
+  is_issuer BOOLEAN DEFAULT FALSE,
+  is_supervisor BOOLEAN DEFAULT FALSE,
+  is_affiliate BOOLEAN DEFAULT FALSE,
+  last_redemption INTEGER DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+<Tip>
+Admin users bypass all role checks. Use sparingly.
+</Tip>
+
+#### `workflows`
+
+Community projects with multi-step execution:
+
+```sql
+CREATE TABLE workflows (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  description TEXT,
+  proposer_id TEXT REFERENCES users(id),
+  supervisor_id TEXT REFERENCES users(id),
+  status TEXT,  -- pending, approved, in_progress, completed, paid_out
+  start_at TIMESTAMP,
+  end_at TIMESTAMP,
+  recurrence TEXT,  -- null, daily, weekly, monthly
+  series_id TEXT,   -- Shared by recurring workflows
+  is_start_blocked BOOLEAN DEFAULT FALSE,
+  total_votes INTEGER DEFAULT 0,
+  yes_votes INTEGER DEFAULT 0,
+  quorum_reached_at TIMESTAMP,
+  decision TEXT,    -- null, approved, rejected, expired, admin_approve
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Workflow Status Flow**:
+```
+pending → approved → in_progress → completed → paid_out
+     ↘ rejected
+     ↘ expired (>14 days)
+     ↘ deleted
+```
+
+#### `workflow_steps`
+
+Sequential tasks within workflows:
+
+```sql
+CREATE TABLE workflow_steps (
+  id TEXT PRIMARY KEY,
+  workflow_id TEXT REFERENCES workflows(id),
+  step_number INTEGER,
+  description TEXT,
+  improver_role_id TEXT,           -- Required improver role
+  improver_credential_type TEXT,   -- Required credential (optional)
+  hours_allocated NUMERIC,
+  sfluv_allocated NUMERIC,
+  status TEXT,  -- locked, available, in_progress, completed, paid_out
+  claimed_by TEXT REFERENCES users(id),
+  claimed_at TIMESTAMP,
+  started_at TIMESTAMP,
+  completed_at TIMESTAMP
+);
+```
+
+**Step Status Flow**:
+```
+locked → available → in_progress → completed → paid_out
+```
+
+Steps unlock sequentially as previous steps complete.
+
+#### `proposers`, `improvers`, `issuers`, `supervisors`
+
+Role-specific metadata:
+
+```sql
+-- Proposers: Create workflows
+CREATE TABLE proposers (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  status TEXT,  -- pending, approved, rejected
+  reason TEXT,
+  approved_at TIMESTAMP
+);
+
+-- Improvers: Execute workflow steps
+CREATE TABLE improvers (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  role_id TEXT UNIQUE,  -- e.g., "landscaper", "carpenter"
+  status TEXT,
+  reason TEXT,
+  primary_rewards_account TEXT,  -- Preferred wallet address
+  approved_at TIMESTAMP
+);
+
+-- Issuers: Grant credentials
+CREATE TABLE issuers (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  status TEXT
+);
+
+-- Supervisors: Oversee workflows
+CREATE TABLE supervisors (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  status TEXT,
+  primary_rewards_account TEXT
+);
+```
+
+#### `credentials`
+
+Certifications required for workflow steps:
+
+```sql
+CREATE TABLE credentials (
+  id TEXT PRIMARY KEY,
+  user_id TEXT REFERENCES users(id),
+  credential_type TEXT,  -- e.g., "dpw_certified", "sfluv_verifier"
+  issued_by TEXT REFERENCES users(id),
+  issued_at TIMESTAMP,
+  revoked_at TIMESTAMP,
+  revoked_by TEXT REFERENCES users(id)
+);
+```
+
+#### `locations`
+
+Merchant business locations:
+
+```sql
+CREATE TABLE locations (
+  id SERIAL PRIMARY KEY,
+  owner TEXT REFERENCES users(id),
+  name TEXT,
+  address TEXT,
+  lat NUMERIC,
+  lng NUMERIC,
+  type TEXT,           -- merchant category
+  description TEXT,
+  hours TEXT,
+  is_approved BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### `wallets`
+
+User-owned EOA and smart wallets:
+
+```sql
+CREATE TABLE wallets (
+  id SERIAL PRIMARY KEY,
+  owner TEXT REFERENCES users(id),
+  name TEXT,
+  eoa_address TEXT,        -- Owner EOA
+  smart_address TEXT,      -- Smart account (if applicable)
+  smart_index INTEGER,     -- Smart account index
+  is_eoa BOOLEAN,
+  is_redeemer BOOLEAN DEFAULT FALSE,  -- Merchant redemption permission
+  is_minter BOOLEAN DEFAULT FALSE     -- SFLUV minting permission
+);
+```
+
+#### `w9_wallet_earnings`
+
+Tracks annual earnings for W9 compliance:
+
+```sql
+CREATE TABLE w9_wallet_earnings (
+  wallet_address TEXT,
+  year INTEGER,
+  amount_received NUMERIC DEFAULT 0,  -- Total SFLUV received
+  amount_unwrapped NUMERIC DEFAULT 0, -- Total unwrapped to HONEY
+  amount_subject_to_w9 NUMERIC DEFAULT 0,  -- Net taxable amount
+  PRIMARY KEY (wallet_address, year)
+);
+```
+
+### Other App Tables
+
+- `workflow_templates` - Reusable workflow definitions
+- `workflow_votes` - User votes on pending workflows
+- `workflow_deletion_proposals` - Vote to delete active workflows
+- `workflow_photos` - Attached images for workflow steps
+- `verified_emails` - Email verification tokens
+- `contacts` - User contact book
+- `ponder_subscriptions` - Email alerts for blockchain events
+- `affiliates` - Affiliate program participants
+- `credential_types` - Available credential definitions
+- `credential_requests` - Improver requests for credentials
+- `improver_absence_periods` - Improver availability calendar
+
+---
+
+## 2. Bot Database
+
+**Purpose**: Faucet operations, redemption codes, and W9 submissions.
+
+### Key Tables
+
+#### `events`
+
+Faucet distribution events (e.g., "Community Cleanup Day"):
+
+```sql
+CREATE TABLE events (
+  id TEXT PRIMARY KEY,
+  title TEXT,
+  description TEXT,
+  amount NUMERIC,           -- SFLUV amount per code
+  codes INTEGER,            -- Number of codes to generate
+  expiration INTEGER,       -- Unix timestamp
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### `codes`
+
+Redemption QR codes linked to events:
+
+```sql
+CREATE TABLE codes (
+  id TEXT PRIMARY KEY,      -- Redeemable code
+  event_id TEXT REFERENCES events(id),
+  redeemed BOOLEAN DEFAULT FALSE,
+  redeemed_by TEXT,         -- Wallet address
+  redeemed_at TIMESTAMP
+);
+```
+
+#### `w9_submissions`
+
+W9 form submissions for tax compliance:
+
+```sql
+CREATE TABLE w9_submissions (
+  id SERIAL PRIMARY KEY,
+  wallet_address TEXT,
+  email TEXT,
+  year INTEGER,
+  status TEXT,              -- pending, approved, rejected
+  submitted_at TIMESTAMP DEFAULT NOW(),
+  reviewed_at TIMESTAMP,
+  reviewed_by TEXT          -- Admin user ID
+);
+```
+
+---
+
+## 3. Ponder Database
+
+**Purpose**: Blockchain event indexing (maintained by Ponder, not backend).
+
+<Warning>
+The `ponder` database is managed exclusively by the Ponder indexer. Backend has read-only access.
+</Warning>
+
+### Key Tables
+
+#### `transfer_event`
+
+ERC20 transfer events:
+
+```sql
+CREATE TABLE transfer_event (
+  id TEXT PRIMARY KEY,
+  block_number BIGINT,
+  transaction_hash TEXT,
+  log_index INTEGER,
+  "from" TEXT,              -- Sender address (lowercase)
+  "to" TEXT,                -- Recipient address (lowercase)
+  amount NUMERIC,           -- Token amount (wei)
+  timestamp BIGINT,
+  chain_id INTEGER
+);
+```
+
+#### `approval_event`
+
+ERC20 approval events:
+
+```sql
+CREATE TABLE approval_event (
+  id TEXT PRIMARY KEY,
+  block_number BIGINT,
+  transaction_hash TEXT,
+  owner TEXT,
+  spender TEXT,
+  amount NUMERIC,
+  timestamp BIGINT,
+  chain_id INTEGER
+);
+```
+
+### Ponder → Backend Integration
+
+Ponder POSTs to `/ponder/callback` when indexing new events:
+
+```typescript
+// Ponder webhook (simplified)
+fetch(`${process.env.W9_TRANSACTION_URL}`, {
+  method: "POST",
+  body: JSON.stringify({
+    from: event.args.from,
+    to: event.args.to,
+    amount: event.args.amount.toString(),
+    timestamp: block.timestamp
+  })
+})
+```
+
+Backend handler updates `w9_wallet_earnings` based on transfers from paid admin addresses.
+
+---
+
+## Database Access Patterns
+
+### Backend DB Layer
+
+All database queries are in `backend/db/`:
+
+```
+backend/db/
+├── app.go                  # AppDB struct + CreateTables
+├── app_user.go             # User CRUD
+├── app_workflow.go         # Workflow + step queries
+├── app_wallet.go           # Wallet management
+├── app_location.go         # Location queries
+├── app_contact.go          # Contact book
+├── app_affiliate.go        # Affiliate queries
+├── app_ponder.go           # Ponder subscription management
+├── app_verified_email.go   # Email verification
+├── faucet_bot.go           # BotDB struct
+├── w9.go                   # W9 submissions (bot DB)
+├── ponder.go               # PonderDB struct
+├── ponder_transactions.go  # Transfer event queries
+└── ponder_w9.go            # W9 earnings tracking
+```
+
+### Example Query Pattern
+
+```go
+// backend/db/app_user.go
+func (d *AppDB) GetUserByDid(ctx context.Context, did string) (*structs.User, error) {
+    query := `SELECT id, contact_name, is_admin, is_merchant, ...
+              FROM users WHERE id = $1`
+    
+    var user structs.User
+    err := d.db.QueryRow(ctx, query, did).Scan(
+        &user.Id, &user.ContactName, &user.IsAdmin, ...
+    )
+    return &user, err
+}
+```
+
+Handlers never write SQL directly - they call DB layer functions.
+
+---
+
+## Backup and Maintenance
+
+### Backup All Databases
+
+```bash
+pg_dump -U postgres app > app_backup.sql
+pg_dump -U postgres bot > bot_backup.sql
+pg_dump -U postgres ponder > ponder_backup.sql
+```
+
+### Restore Database
+
+```bash
+psql -U postgres -d app < app_backup.sql
+```
+
+### Reset for Development
+
+<Warning>
+This deletes all data!
+</Warning>
+
+```bash
+psql -U postgres -c "DROP DATABASE app; CREATE DATABASE app;"
+psql -U postgres -c "DROP DATABASE bot; CREATE DATABASE bot;"
+psql -U postgres -c "DROP DATABASE ponder; CREATE DATABASE ponder;"
+```
+
+Restart services to recreate tables.
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Backend Overview" icon="server" href="/dev/backend-overview">
+    Learn how handlers query the database
+  </Card>
+  <Card title="Handlers" icon="code" href="/dev/handlers">
+    Explore HTTP handler patterns
+  </Card>
+</CardGroup>

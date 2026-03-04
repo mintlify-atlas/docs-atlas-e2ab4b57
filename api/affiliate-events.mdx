@@ -1,0 +1,223 @@
+---
+title: "Affiliate Events API"
+description: "Affiliate event creation, redemption codes, and balance management"
+---
+
+## Get Affiliate Balance
+
+<ParamField path="GET /affiliates/balance" type="endpoint">
+  Retrieve the current affiliate balance and allocation.
+</ParamField>
+
+**Authentication:** Required (Affiliate role)
+
+**Response:** `200 OK`
+
+```json
+{
+  "available": 1250,
+  "weekly_allocation": 1000,
+  "weekly_balance": 750,
+  "one_time_balance": 500,
+  "reserved": 300
+}
+```
+
+**Field Descriptions:**
+
+- `available` - Total available balance (weekly + one-time)
+- `weekly_allocation` - Weekly token allocation amount
+- `weekly_balance` - Current weekly balance remaining
+- `one_time_balance` - One-time balance pool
+- `reserved` - Balance reserved for unredeemed event codes
+
+**Error Responses:**
+
+- `404 Not Found` - Affiliate not found
+
+---
+
+## Create Affiliate Event
+
+<ParamField path="POST /affiliates/events" type="endpoint">
+  Create a new redemption event with QR codes.
+</ParamField>
+
+**Authentication:** Required (Affiliate role)
+
+**Request Body:**
+
+```json
+{
+  "name": "Community Garden Giveaway",
+  "amount": 10,
+  "codes": 50,
+  "expiration": "2026-12-31T23:59:59Z"
+}
+```
+
+**Field Descriptions:**
+
+- `name` - Event display name
+- `amount` - Token amount per code (in whole tokens, not wei)
+- `codes` - Number of redemption codes to generate
+- `expiration` - ISO 8601 timestamp when codes expire
+
+**Response:** `201 Created`
+
+```json
+"evt_1234567890abcdef"
+```
+
+Returns the event ID.
+
+**Error Responses:**
+
+- `400 Bad Request` - Insufficient affiliate balance or faucet balance
+- `403 Forbidden` - User is not an affiliate
+
+**Note:** The total cost (`amount * codes`) is reserved from the affiliate's balance immediately.
+
+---
+
+## List Affiliate Events
+
+<ParamField path="GET /affiliates/events" type="endpoint">
+  Retrieve paginated list of events owned by the affiliate.
+</ParamField>
+
+**Authentication:** Required (Affiliate role)
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | integer | 0 | Page number |
+| `count` | integer | 10 | Items per page |
+| `search` | string | - | Search by event name |
+| `expired` | boolean | false | Include expired events |
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "id": "evt_1234567890abcdef",
+    "name": "Community Garden Giveaway",
+    "owner": "did:key:z6Mk...",
+    "amount": 10,
+    "codes": 50,
+    "redeemed": 23,
+    "expiration": "2026-12-31T23:59:59Z",
+    "created_at": "2026-01-15T10:30:00Z"
+  }
+]
+```
+
+---
+
+## Get Event Codes
+
+<ParamField path="GET /affiliates/events/:event" type="endpoint">
+  Retrieve redemption codes for a specific event.
+</ParamField>
+
+**Authentication:** Required (Affiliate role, event owner)
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | integer | 0 | Page number |
+| `count` | integer | 100 | Items per page |
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "code": "ABC123XYZ",
+    "event_id": "evt_1234567890abcdef",
+    "redeemed": false,
+    "redeemed_at": null,
+    "redeemed_by": null,
+    "amount": 10
+  },
+  {
+    "code": "DEF456UVW",
+    "event_id": "evt_1234567890abcdef",
+    "redeemed": true,
+    "redeemed_at": "2026-01-20T14:22:00Z",
+    "redeemed_by": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+    "amount": 10
+  }
+]
+```
+
+**Error Responses:**
+
+- `403 Forbidden` - User is not the event owner
+- `404 Not Found` - Event not found
+
+---
+
+## Delete Affiliate Event
+
+<ParamField path="DELETE /affiliates/events/:event" type="endpoint">
+  Delete an event and refund unredeemed codes.
+</ParamField>
+
+**Authentication:** Required (Affiliate role, event owner)
+
+**Response:** `200 OK`
+
+**Note:** The value of unredeemed codes is automatically refunded to the affiliate's weekly balance.
+
+**Error Responses:**
+
+- `403 Forbidden` - User is not the event owner
+- `404 Not Found` - Event not found
+
+---
+
+## Schemas
+
+### AffiliateBalance
+
+```typescript
+interface AffiliateBalance {
+  available: number;        // Total available (weekly + one-time)
+  weekly_allocation: number; // Weekly token allocation
+  weekly_balance: number;    // Current weekly balance
+  one_time_balance: number;  // One-time balance pool
+  reserved: number;          // Reserved for unredeemed codes
+}
+```
+
+### Event
+
+```typescript
+interface Event {
+  id: string;              // Event ID (evt_...)
+  name: string;            // Event display name
+  owner: string;           // Affiliate DID
+  amount: number;          // Tokens per code
+  codes: number;           // Total codes generated
+  redeemed: number;        // Number of codes redeemed
+  expiration: string;      // ISO 8601 timestamp
+  created_at: string;      // ISO 8601 timestamp
+}
+```
+
+### Code
+
+```typescript
+interface Code {
+  code: string;            // Redemption code
+  event_id: string;        // Associated event ID
+  redeemed: boolean;       // Redemption status
+  redeemed_at: string | null;   // ISO 8601 timestamp
+  redeemed_by: string | null;   // Ethereum address
+  amount: number;          // Token amount
+}
+```

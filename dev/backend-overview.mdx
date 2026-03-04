@@ -1,0 +1,466 @@
+---
+title: 'Backend Architecture'
+description: 'Go 1.24 backend with chi router, pgx, and JWT authentication'
+---
+
+## Overview
+
+The SFLUV backend is a Go 1.24 HTTP API server using:
+
+- **chi** - Lightweight HTTP router
+- **pgx** - PostgreSQL driver
+- **Privy JWT** - Authentication via ES256 tokens
+- **Mailgun** - Transactional email
+- **go-ethereum** - Blockchain interaction
+
+## Project Structure
+
+```
+backend/
+├── main.go              # Entrypoint: DB init, service wiring, HTTP server
+├── go.mod / go.sum      # Dependencies
+├── .env                 # Environment configuration
+├── db/                  # Database query layer
+│   ├── app.go           # AppDB struct + table creation
+│   ├── app_user.go      # User queries
+│   ├── app_workflow.go  # Workflow queries
+│   ├── app_wallet.go    # Wallet queries
+│   ├── faucet_bot.go    # Bot DB queries
+│   ├── ponder.go        # Ponder DB queries
+│   └── ...
+├── handlers/            # HTTP request handlers
+│   ├── app.go           # AppService struct
+│   ├── app_user.go      # User endpoints
+│   ├── app_workflow.go  # Workflow endpoints
+│   ├── bot.go           # BotService + faucet endpoints
+│   ├── w9.go            # W9 compliance endpoints
+│   └── ...
+├── router/              # Route definitions + middleware
+│   └── router.go        # All routes + role guards
+├── structs/             # Shared Go types
+│   ├── app_workflow.go  # Workflow, Step, Vote types
+│   └── ...
+├── utils/
+│   └── middleware/
+│       └── auth.go      # JWT validation middleware
+├── logger/              # Structured logging
+│   └── logger.go
+└── bot/                 # Background services
+    └── bot.go           # Faucet bot service
+```
+
+---
+
+## Startup Flow
+
+### main.go
+
+`backend/main.go:18-125`
+
+```go
+func main() {
+    // 1. Load environment variables
+    if envFile := os.Getenv("ENV_FILE"); envFile != "" {
+        _ = godotenv.Load(envFile)
+    } else {
+        godotenv.Load()
+    }
+    ctx := context.Background()
+
+    // 2. Initialize three database connections
+    bdb, err := db.PgxDB("bot")
+    adb, err := db.PgxDB("app")
+    pdb, err := db.PgxDB("ponder")
+
+    // 3. Initialize logger
+    appLogger, err := logger.New("./logs/prod/app.log", "APP: ")
+    defer appLogger.Close()
+
+    // 4. Create database tables if not exist
+    appDb := db.App(adb, appLogger)
+    err = appDb.CreateTables()
+    
+    botDb := db.Bot(bdb)
+    err = botDb.CreateTables(defaultAdminId)
+    
+    ponderDb := db.Ponder(pdb, appLogger)
+
+    // 5. Initialize services
+    bot, err := bot.Init()
+    w9 := handlers.NewW9Service(appDb, ponderDb, appLogger)
+    affiliateScheduler := handlers.NewAffiliateScheduler(appDb, botDb, appLogger)
+    affiliateScheduler.Start(ctx)
+    redeemer := handlers.NewRedeemerService(appDb, appLogger)
+    minter := handlers.NewMinterService(appDb, appLogger)
+
+    // 6. Wire up service dependencies
+    s := handlers.NewBotService(botDb, appDb, bot, w9, affiliateScheduler)
+    a := handlers.NewAppService(appDb, appLogger, w9)
+    a.SetBotService(s)
+    a.SetRedeemerService(redeemer)
+    a.SetMinterService(minter)
+    p := handlers.NewPonderService(ponderDb, appLogger)
+
+    // 7. Initialize router with all services
+    r := router.New(s, a, p)
+
+    // 8. Start HTTP server (and optionally HTTPS)
+    port := os.Getenv("PORT")  // default: 8080
+    http.ListenAndServe(fmt.Sprintf(":%s", port), r)
+}
+```
+
+**Key Points**:
+- Database connections initialized first
+- Services created with database dependencies
+- Router receives all services for handler registration
+- Background services (affiliate scheduler) started as goroutines
+
+---
+
+## Layered Architecture
+
+### Layer 1: Database (`db/`)
+
+All SQL queries isolated in the `db/` package. No handlers write SQL directly.
+
+**Example**: `backend/db/app_user.go`
+
+```go
+type AppDB struct {
+    db     *pgxpool.Pool
+    logger *logger.LogCloser
+}
+
+func (d *AppDB) GetUserByDid(ctx context.Context, did string) (*structs.User, error) {
+    query := `SELECT id, contact_name, contact_email, is_admin, is_merchant,
+                     is_improver, is_proposer, is_voter
+              FROM users WHERE id = $1`
+    
+    var user structs.User
+    err := d.db.QueryRow(ctx, query, did).Scan(
+        &user.Id, &user.ContactName, &user.ContactEmail,
+        &user.IsAdmin, &user.IsMerchant, ...
+    )
+    if err != nil {
+        return nil, err
+    }
+    return &user, nil
+}
+```
+
+**Pattern**: Every database operation is a method on `AppDB`, `BotDB`, or `PonderDB`.
+
+### Layer 2: Handlers (`handlers/`)
+
+HTTP handlers process requests, call database layer, return JSON.
+
+**Example**: `backend/handlers/app_user.go`
+
+```go
+type AppService struct {
+    db     *db.AppDB
+    w9     *W9Service
+    logger *logger.LogCloser
+}
+
+func (a *AppService) GetUserAuthed(w http.ResponseWriter, r *http.Request) {
+    // Extract authenticated user ID from context (set by middleware)
+    userDid := r.Context().Value("userDid").(string)
+    
+    // Call database layer
+    user, err := a.db.GetUserByDid(r.Context(), userDid)
+    if err != nil {
+        http.Error(w, "User not found", http.StatusNotFound)
+        return
+    }
+    
+    // Build response with additional data
+    response := GetUserResponse{
+        User:      user,
+        Wallets:   a.db.GetWalletsByUser(r.Context(), userDid),
+        Locations: a.db.GetLocationsByUser(r.Context(), userDid),
+        // ...
+    }
+    
+    // Return JSON
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(response)
+}
+```
+
+**Pattern**: Handlers are methods on service structs (`AppService`, `BotService`, `PonderService`).
+
+### Layer 3: Router (`router/`)
+
+Routes map HTTP methods/paths to handlers with middleware guards.
+
+**Example**: `backend/router/router.go:56-65`
+
+```go
+func AddUserRoutes(r *chi.Mux, s *handlers.AppService) {
+    r.Post("/users", withAuth(s.AddUser))
+    r.Get("/users", withAuth(s.GetUserAuthed))
+    r.Put("/users", withAuth(s.UpdateUserInfo))
+    r.Get("/users/verified-emails", withAuth(s.GetUserVerifiedEmails))
+    r.Post("/users/verified-emails", withAuth(s.RequestUserEmailVerification))
+    // ...
+}
+```
+
+**Pattern**: Routes grouped by feature, wrapped in role middleware.
+
+---
+
+## Service Structure
+
+### AppService
+
+Handles core application features (users, workflows, wallets, locations).
+
+`backend/handlers/app.go:8-19`
+
+```go
+type AppService struct {
+    db       *db.AppDB
+    w9       *W9Service
+    bot      *BotService
+    redeemer *RedeemerService
+    minter   *MinterService
+    logger   *logger.LogCloser
+}
+
+func NewAppService(db *db.AppDB, logger *logger.LogCloser, w9 *W9Service) *AppService {
+    return &AppService{db: db, logger: logger, w9: w9}
+}
+```
+
+**Handlers** (in `handlers/app_*.go` files):
+- `app_user.go` - User CRUD, email verification
+- `app_workflow.go` - Workflow creation, voting, step execution
+- `app_wallet.go` - Wallet management
+- `app_location.go` - Merchant location CRUD
+- `app_contact.go` - Contact book
+- `app_affiliate.go` - Affiliate role requests
+- `app_admin.go` - Admin endpoints (user/role management)
+- `app_ponder.go` - Ponder subscription management
+
+### BotService
+
+Handles faucet operations and QR code redemptions.
+
+```go
+type BotService struct {
+    db                 *db.BotDB
+    appDb              *db.AppDB
+    bot                *bot.Bot  // Blockchain bot
+    w9                 *W9Service
+    affiliateScheduler *AffiliateScheduler
+}
+```
+
+**Endpoints**:
+- `POST /events` - Create faucet event
+- `POST /events/{id}/codes` - Generate QR codes
+- `POST /redeem` - Redeem QR code
+- `GET /balance` - Faucet balance
+
+### W9Service
+
+Manages W9 tax compliance (tracks earnings, submission, approval).
+
+```go
+type W9Service struct {
+    db       *db.AppDB
+    ponderDb *db.PonderDB
+    logger   *logger.LogCloser
+}
+```
+
+**Endpoints**:
+- `POST /w9/submit` - Submit W9 form
+- `POST /w9/webhook` - Receive W9 from Wordpress
+- `POST /w9/transaction` - Record transaction (Ponder callback)
+- `GET /admin/w9/pending` - Admin: list pending submissions
+- `PUT /admin/w9/approve` - Admin: approve submission
+
+### PonderService
+
+Queries blockchain transaction history.
+
+```go
+type PonderService struct {
+    db     *db.PonderDB
+    logger *logger.LogCloser
+}
+```
+
+**Endpoints**:
+- `GET /transactions` - Get transfer history for address
+- `GET /transactions/balance` - Get balance at timestamp
+
+---
+
+## Database Connections
+
+### Connection Pooling
+
+`backend/db/db.go`
+
+```go
+func PgxDB(dbName string) (*pgxpool.Pool, error) {
+    dbUrl := os.Getenv("DB_URL")
+    dbUser := os.Getenv("DB_USER")
+    dbPassword := os.Getenv("DB_PASSWORD")
+    
+    connString := fmt.Sprintf(
+        "postgres://%s:%s@%s/%s",
+        dbUser, dbPassword, dbUrl, dbName,
+    )
+    
+    config, err := pgxpool.ParseConfig(connString)
+    if err != nil {
+        return nil, err
+    }
+    
+    // Connection pool settings
+    config.MaxConns = 10
+    config.MinConns = 2
+    
+    return pgxpool.NewWithConfig(context.Background(), config)
+}
+```
+
+**Pattern**: One connection pool per database, shared across all handlers.
+
+---
+
+## Background Services
+
+### AffiliateScheduler
+
+Runs periodic payouts for affiliate events.
+
+```go
+func (a *AffiliateScheduler) Start(ctx context.Context) {
+    go func() {
+        ticker := time.NewTicker(24 * time.Hour)
+        for {
+            select {
+            case <-ticker.C:
+                a.ProcessPayouts(ctx)
+            case <-ctx.Done():
+                return
+            }
+        }
+    }()
+}
+```
+
+### BotService Background Jobs
+
+Monitors faucet events and triggers QR code generation.
+
+---
+
+## Error Handling
+
+### HTTP Error Responses
+
+```go
+// Not found
+http.Error(w, "User not found", http.StatusNotFound)
+
+// Bad request
+http.Error(w, "Invalid workflow ID", http.StatusBadRequest)
+
+// Internal error (logged)
+a.logger.Logf("Error querying database: %v", err)
+http.Error(w, "Internal server error", http.StatusInternalServerError)
+```
+
+### Logging
+
+```go
+appLogger, err := logger.New("./logs/prod/app.log", "APP: ")
+defer appLogger.Close()
+
+// In handlers
+a.logger.Logf("User %s requested workflow %s", userDid, workflowId)
+```
+
+Logs written to `backend/logs/prod/app.log` with timestamps.
+
+---
+
+## Dependencies
+
+`backend/go.mod:7-15`
+
+```go
+require (
+    github.com/ethereum/go-ethereum v1.16.8     // Blockchain
+    github.com/go-chi/chi/v5 v5.2.2             // HTTP router
+    github.com/go-chi/cors v1.2.2               // CORS middleware
+    github.com/golang-jwt/jwt/v5 v5.3.0         // JWT parsing
+    github.com/google/uuid v1.6.0               // UUID generation
+    github.com/joho/godotenv v1.5.1             // .env loading
+    github.com/jackc/pgx/v5 v5.7.5              // PostgreSQL driver
+    github.com/mailgun/mailgun-go/v4 v4.23.0    // Email
+    golang.org/x/crypto v0.37.0                 // Cryptography
+)
+```
+
+---
+
+## Testing
+
+### Run All Tests
+
+```bash
+go test -vet=off ./db ./handlers ./router ./structs
+```
+
+### Test Structure
+
+Tests live alongside source files:
+
+```
+backend/handlers/
+├── bot.go
+└── bot_redeem_code_test.go
+```
+
+**Example**: `backend/handlers/bot_redeem_code_test.go`
+
+```go
+func TestRedeemCode(t *testing.T) {
+    // Setup: Create test DB, bot service
+    testDB := setupTestDB(t)
+    botService := NewBotService(testDB, ...)
+    
+    // Test: Redeem valid code
+    req := httptest.NewRequest("POST", "/redeem", nil)
+    w := httptest.NewRecorder()
+    botService.Redeem(w, req)
+    
+    // Assert: Code marked as redeemed
+    assert.Equal(t, http.StatusOK, w.Code)
+}
+```
+
+---
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Handlers" icon="code" href="/dev/handlers">
+    Deep dive into handler structure and patterns
+  </Card>
+  <Card title="Middleware" icon="shield" href="/dev/middleware">
+    Authentication and role-based guards
+  </Card>
+  <Card title="Router" icon="route" href="/dev/router">
+    Route definitions and organization
+  </Card>
+</CardGroup>

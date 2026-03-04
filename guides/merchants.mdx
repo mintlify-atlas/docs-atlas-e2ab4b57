@@ -1,0 +1,394 @@
+---
+title: 'Merchant Guide'
+description: 'Learn how to accept SFLuv payments, manage your location, and maintain W9 compliance'
+---
+
+# Merchant Guide
+
+Merchants are businesses that accept SFLuv as payment. This guide covers the merchant approval process, location management, W9 compliance, and accepting payments.
+
+## Getting Started
+
+### Becoming a Merchant
+
+<Steps>
+  <Step title="Create an SFLUV Account">
+    Visit the merchant approval page (`/settings/merchant-approval`) and log in or create an account.
+  </Step>
+  
+  <Step title="Complete Merchant Approval Form">
+    Fill out the form with:
+    - **Business Name**: Your business legal or trade name
+    - **Location**: Search for your business using Google Places
+    - **Contact Information**: Phone, email, website
+    - **Description**: What your business offers
+    - **Hours**: Operating hours
+    - **Categories**: Business type (restaurant, retail, services, etc.)
+    
+    The location search uses Google Places API to auto-populate address, coordinates, and place details.
+  </Step>
+  
+  <Step title="Submit for Approval">
+    Submit your application for admin review.
+  </Step>
+  
+  <Step title="Wait for Admin Approval">
+    Admins review submissions and approve qualifying merchants.
+    
+    Once approved, your location appears on the SFLUV merchant map.
+  </Step>
+</Steps>
+
+<Info>
+  The merchant map (`/` and `/map`) shows all approved merchant locations. Users can find and visit merchants accepting SFLuv.
+</Info>
+
+## Managing Your Location
+
+### Viewing Your Location
+
+<Steps>
+  <Step title="Navigate to Settings">
+    Go to `/settings` and access the location management section.
+  </Step>
+  
+  <Step title="View Location Details">
+    See your business information:
+    - Name and address
+    - Coordinates (latitude/longitude)
+    - Contact details
+    - Description and hours
+    - Approval status
+  </Step>
+</Steps>
+
+### Updating Location Information
+
+<Steps>
+  <Step title="Access Location Settings">
+    Go to your location management page.
+  </Step>
+  
+  <Step title="Edit Information">
+    Update:
+    - Contact phone and email
+    - Website URL
+    - Description
+    - Hours of operation
+    - Categories
+    
+    <Warning>
+      You cannot change the primary address or place ID after approval. Contact admins for location changes.
+    </Warning>
+  </Step>
+  
+  <Step title="Save Changes">
+    Your updates appear immediately on the merchant map.
+  </Step>
+</Steps>
+
+### Location Visibility
+
+Approved merchant locations:
+- Appear on the public merchant map
+- Show up in search results
+- Display all contact information
+- Link to your website (if provided)
+- Show current operating hours
+
+## Accepting SFLuv Payments
+
+### Payment Methods
+
+SFLuv is a wrapped HONEY token on Berachain. Merchants can accept payments via:
+
+1. **Wallet-to-Wallet Transfers**: Direct on-chain transfers
+2. **Point-of-Sale Integration**: Coming soon
+3. **QR Code Payments**: Coming soon
+
+### Setting Up Payment Reception
+
+<Steps>
+  <Step title="Connect Your Wallet">
+    Link a wallet address to your merchant account:
+    - Go to `/wallets` to manage connected wallets
+    - Add the wallet you want to receive payments
+  </Step>
+  
+  <Step title="Share Payment Address">
+    Provide your wallet address to customers:
+    - Display QR code at point of sale
+    - Include address on receipts or invoices
+    - Share via payment terminal
+  </Step>
+  
+  <Step title="Receive SFLuv Tokens">
+    Customers send SFLuv directly to your wallet address.
+    
+    Transactions are recorded on-chain via Berachain.
+  </Step>
+</Steps>
+
+### Tracking Transactions
+
+View your transaction history:
+
+<Steps>
+  <Step title="Check Wallet Balance">
+    Use `/wallets` to see your current SFLuv balance.
+  </Step>
+  
+  <Step title="Review Transaction History">
+    Access transaction history via:
+    - `GET /transactions` API endpoint
+    - Blockchain explorer (Berachain)
+  </Step>
+  
+  <Step title="Monitor Balance Over Time">
+    Use `GET /transactions/balance` to check balance at specific timestamps.
+  </Step>
+</Steps>
+
+## W9 Compliance
+
+Merchants may need to submit W9 forms for tax compliance when receiving payments above certain thresholds.
+
+### Understanding W9 Requirements
+
+The SFLUV platform tracks merchant transaction volumes and notifies you when W9 submission is required:
+
+- **Threshold Monitoring**: System tracks your cumulative SFLuv payments
+- **Compliance Notifications**: You're notified when approaching compliance thresholds
+- **Submission Deadlines**: Submit W9 before threshold to avoid payment restrictions
+
+### Submitting Your W9
+
+<Steps>
+  <Step title="Receive Notification">
+    You'll be notified when W9 submission is required.
+  </Step>
+  
+  <Step title="Access W9 Submission">
+    Go to `/merchant-status` to see your compliance status.
+  </Step>
+  
+  <Step title="Submit W9 Information">
+    Provide:
+    - Business legal name
+    - Tax ID (EIN or SSN)
+    - Address
+    - Tax classification
+    - Signature and date
+    
+    W9 submissions are processed via secure webhook integration.
+  </Step>
+  
+  <Step title="Wait for Verification">
+    Admins verify W9 submissions:
+    - Pending: Under review
+    - Approved: Compliant, no restrictions
+    - Rejected: Issues found, resubmit required
+  </Step>
+</Steps>
+
+<Warning>
+  Non-compliance may result in payment restrictions until W9 is submitted and approved.
+</Warning>
+
+### Checking Compliance Status
+
+<Steps>
+  <Step title="Navigate to Merchant Status Page">
+    Go to `/merchant-status`.
+  </Step>
+  
+  <Step title="View Compliance Information">
+    See:
+    - Current W9 status (Pending, Approved, Rejected, Not Required)
+    - Total transaction volume
+    - Threshold proximity
+    - Submission deadline (if applicable)
+  </Step>
+  
+  <Step title="Take Action if Needed">
+    If W9 is required:
+    - Submit form immediately
+    - Contact admins with questions
+    - Track submission status
+  </Step>
+</Steps>
+
+## Unwrapping SFLuv Tokens
+
+Merchants can convert (unwrap) SFLuv tokens back to HONEY or other assets:
+
+<Steps>
+  <Step title="Check Unwrap Eligibility">
+    Use the unwrap page (`/unwrap`) to check:
+    - Your current SFLuv balance
+    - Unwrap eligibility
+    - Any restrictions
+  </Step>
+  
+  <Step title="Initiate Unwrap">
+    Submit an unwrap request:
+    - Specify amount to unwrap
+    - Confirm destination address
+    - Review transaction fees
+  </Step>
+  
+  <Step title="Record Transaction">
+    The system records the unwrap transaction and adjusts your balance.
+  </Step>
+</Steps>
+
+<Info>
+  Unwrap functionality may have eligibility requirements or restrictions. Check `/unwrap` for current policies.
+</Info>
+
+## Best Practices for Merchants
+
+<AccordionGroup>
+  <Accordion title="Display SFLuv Acceptance Prominently">
+    Make it easy for customers to know you accept SFLuv:
+    - Post signage at entrance and checkout
+    - Include SFLuv logo on website
+    - Mention in marketing materials
+    - Train staff to explain SFLuv to customers
+  </Accordion>
+  
+  <Accordion title="Keep Location Info Updated">
+    Ensure customers can find and contact you:
+    - Update hours seasonally
+    - Reflect temporary closures
+    - Keep phone and email current
+    - Maintain accurate website link
+  </Accordion>
+  
+  <Accordion title="Monitor Transaction Activity">
+    Stay aware of payment volumes:
+    - Check wallet balance regularly
+    - Track transaction history
+    - Watch for unusual activity
+    - Reconcile SFLuv payments with sales records
+  </Accordion>
+  
+  <Accordion title="Maintain W9 Compliance">
+    Avoid payment restrictions:
+    - Submit W9 promptly when requested
+    - Keep tax information current
+    - Respond to compliance notifications
+    - Contact admins with questions
+  </Accordion>
+  
+  <Accordion title="Provide Excellent Customer Experience">
+    Make SFLuv payments smooth:
+    - Train staff on payment acceptance
+    - Have clear payment instructions
+    - Provide QR codes for easy scanning
+    - Confirm payment receipt quickly
+    - Offer support for payment issues
+  </Accordion>
+</AccordionGroup>
+
+## Merchant Map Features
+
+Your location on the merchant map:
+
+- **Search**: Users can search by name, category, or location
+- **Filters**: Users can filter by business type
+- **Details**: Clicking your pin shows full business info
+- **Directions**: Users can get directions to your location
+- **Contact**: Users can call, email, or visit your website
+
+<Tip>
+  Provide a complete, accurate description to help users find you in search results.
+</Tip>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Application not approved">
+    Common reasons:
+    - Incomplete information
+    - Incorrect location details
+    - Non-qualifying business type
+    - Duplicate location
+    
+    **Solution**: Contact admins for feedback and resubmit with corrections.
+  </Accordion>
+  
+  <Accordion title="Not appearing on map">
+    Check:
+    - Approval status (must be approved)
+    - Location coordinates (must be valid)
+    - Browser refresh (clear cache)
+    
+    **Solution**: Verify approval status in settings. Contact admins if approved but not visible.
+  </Accordion>
+  
+  <Accordion title="Can't update location details">
+    Possible issues:
+    - Not logged in
+    - Trying to change restricted fields (address, place ID)
+    - Network connection issues
+    
+    **Solution**: Refresh page and try again. Contact admins for address changes.
+  </Accordion>
+  
+  <Accordion title="W9 submission rejected">
+    Common reasons:
+    - Missing information
+    - Mismatched business name or tax ID
+    - Invalid signature
+    - Technical submission error
+    
+    **Solution**: Review rejection reason from admin. Correct issues and resubmit.
+  </Accordion>
+  
+  <Accordion title="Payment not received">
+    Check:
+    - Correct wallet address shared with customer
+    - Transaction confirmed on blockchain
+    - Sufficient time for confirmation (network speed)
+    
+    **Solution**: Verify wallet address. Check blockchain explorer. Contact customer to confirm they sent payment.
+  </Accordion>
+</AccordionGroup>
+
+## API Endpoints Reference
+
+**Location routes** (authenticated users):
+
+- `POST /locations` - Submit location for approval
+- `GET /locations/{id}` - Get location details
+- `GET /locations` - List all approved locations (public)
+- `GET /locations/user` - Get your locations (authenticated)
+- `PUT /locations` - Update location information
+
+**Admin location routes**:
+- `GET /admin/locations` - List pending approvals
+- `PUT /admin/locations` - Approve or reject location
+
+**W9 routes**:
+- `POST /w9/submit` - Submit W9 form
+- `POST /w9/webhook` - W9 webhook handler (external)
+- `POST /w9/transaction` - Record W9 transaction (admin)
+- `POST /w9/check` - Check W9 compliance (admin)
+- `GET /admin/w9/pending` - List pending W9 submissions (admin)
+- `PUT /admin/w9/approve` - Approve W9 submission (admin)
+- `PUT /admin/w9/reject` - Reject W9 submission (admin)
+
+**Unwrap routes**:
+- `POST /unwrap/eligibility` - Check unwrap eligibility
+- `POST /unwrap/record` - Record unwrap transaction
+
+**Transaction routes**:
+- `GET /transactions` - Get transaction history (Ponder)
+- `GET /transactions/balance` - Get balance at timestamp
+
+## Related Resources
+
+- [Token Unwrapping](/features/token-unwrapping)
+- [Wallets API](/api/wallets)
+- [Berachain Documentation](https://docs.berachain.com/)

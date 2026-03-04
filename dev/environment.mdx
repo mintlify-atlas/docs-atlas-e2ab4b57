@@ -1,0 +1,332 @@
+---
+title: 'Environment Variables'
+description: 'Configuration for backend, frontend, and Ponder services'
+---
+
+## Backend Environment Variables
+
+Location: `backend/.env`
+
+### Server Configuration
+
+```bash
+PORT=8080
+IN_PRODUCTION=false
+```
+
+- `PORT` - HTTP server port (default: 8080)
+- `IN_PRODUCTION` - Set to `true` for production environment
+
+### Database Configuration
+
+```bash
+DB_TYPE=postgres
+DB_URL=localhost:5432
+DB_USER=postgres
+DB_PASSWORD=your_password
+```
+
+<Note>
+The backend connects to three databases using the same credentials: `app`, `bot`, and `ponder`.
+</Note>
+
+### Authentication
+
+```bash
+ADMIN_KEY=your_admin_secret_key
+```
+
+- `ADMIN_KEY` - Shared secret for admin API calls via `X-Admin-Key` header
+
+### Blockchain Configuration
+
+```bash
+# Token Addresses
+TOKEN_ID=0x...
+UNDERLYING_TOKEN_ID=0x...
+TOKEN_DECIMALS=1000000000000000000
+
+# RPC
+RPC_URL=https://rpc.berachain.com
+
+# Bot/Admin Addresses
+BACKING_ASSETS=
+BOT_KEY=0x...
+BOT_ADDRESS=0x...
+ADMIN_ADDRESS=0x...
+REDEEMER_ADMIN_KEY=0x...
+REDEEMER_ADMIN_ADDRESS=0x...
+```
+
+- `TOKEN_ID` - SFLUV wrapped token contract address
+- `UNDERLYING_TOKEN_ID` - HONEY token contract address
+- `TOKEN_DECIMALS` - 18 decimals (1e18)
+- `RPC_URL` - Berachain RPC endpoint
+- `BOT_KEY` / `BOT_ADDRESS` - Faucet bot wallet credentials
+- `ADMIN_ADDRESS` - Primary admin wallet
+- `REDEEMER_ADMIN_KEY` / `REDEEMER_ADMIN_ADDRESS` - Merchant redemption admin
+
+### Privy (Authentication)
+
+```bash
+PRIVY_APP_ID=clxxxx...
+PRIVY_VKEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+```
+
+- `PRIVY_APP_ID` - Your Privy application ID
+- `PRIVY_VKEY` - Privy verification key (ES256 public key) for JWT validation
+
+<Tip>
+Get these from your [Privy Dashboard](https://dashboard.privy.io).
+</Tip>
+
+### Email (Mailgun)
+
+```bash
+MAILGUN_API_KEY=key-xxx
+MAILGUN_DOMAIN=mail.sfluv.org
+APP_BASE_URL=http://localhost:3000
+
+# Admin Notification Emails
+AFFILIATE_ADMIN_EMAIL=admin@sfluv.org
+PROPOSER_ADMIN_EMAIL=admin@sfluv.org
+IMPROVER_ADMIN_EMAIL=admin@sfluv.org
+WORKFLOW_ADMIN_EMAIL=admin@sfluv.org
+```
+
+- `MAILGUN_API_KEY` - Mailgun API key
+- `MAILGUN_DOMAIN` - Verified Mailgun sending domain
+- `APP_BASE_URL` - Frontend base URL for email links
+- `*_ADMIN_EMAIL` - Recipients for role request notifications
+
+### Ponder Integration
+
+```bash
+PONDER_SERVER_BASE_URL=http://localhost:42069
+PONDER_KEY=your_ponder_secret
+PONDER_CALLBACK_URL=http://localhost:8080/ponder/callback
+```
+
+- `PONDER_SERVER_BASE_URL` - Ponder indexer URL
+- `PONDER_KEY` - Shared secret for authenticating Ponder callbacks
+- `PONDER_CALLBACK_URL` - Backend endpoint for Ponder webhooks
+
+### W9 Compliance
+
+```bash
+PAID_ADMIN_ADDRESSES=0x...,0x...
+W9_ADMIN_EMAIL=admin@sfluv.com
+W9_SUBMISSION_URL=https://sfluv.org/submit-w9/
+
+# Optional: Testing overrides
+# W9_LIMIT_WEI=
+# W9_LIMIT_SFLUV=
+
+# Optional: Wordpress webhook security
+# W9_WEBHOOK_SECRET=
+```
+
+- `PAID_ADMIN_ADDRESSES` - Comma-separated wallet addresses exempt from W9 tracking
+- `W9_ADMIN_EMAIL` - W9 approval notification recipient
+- `W9_SUBMISSION_URL` - Public W9 submission form URL
+- `W9_LIMIT_WEI` / `W9_LIMIT_SFLUV` - Override $600 threshold for testing
+- `W9_WEBHOOK_SECRET` - Validate Wordpress webhook calls
+
+### TLS Configuration (Optional)
+
+```bash
+TLS_CERT_FILE=/path/to/localhost.crt
+TLS_KEY_FILE=/path/to/localhost.key
+TLS_PORT=8443
+```
+
+- Backend serves on both HTTP (PORT) and HTTPS (TLS_PORT) when configured
+
+---
+
+## Frontend Environment Variables
+
+Location: `frontend/.env`
+
+<Note>
+All frontend variables must be prefixed with `NEXT_PUBLIC_` to be accessible in browser code.
+</Note>
+
+### Privy Authentication
+
+```bash
+NEXT_PUBLIC_PRIVY_APP_ID=clxxxx...
+NEXT_PUBLIC_BACKEND_BASE_URL=http://localhost:8080
+```
+
+### Blockchain Network
+
+```bash
+NEXT_PUBLIC_CHAIN_NAME=berachain-bartio
+NEXT_PUBLIC_FACTORY_ADDRESS=0x...
+NEXT_PUBLIC_FAUCET_ADDRESS=0x...
+NEXT_PUBLIC_ZAPPER_ADDRESS=0x...
+```
+
+- `CHAIN_NAME` - Network identifier for wagmi/viem
+- `FACTORY_ADDRESS` - Smart account factory contract
+- `FAUCET_ADDRESS` - SFLUV faucet/treasury address
+- `ZAPPER_ADDRESS` - Token swap contract
+
+### Paymaster (Account Abstraction)
+
+```bash
+NEXT_PUBLIC_ENGINE_URL=https://engine.citizenwallet.xyz
+NEXT_PUBLIC_PAYMASTER_ADDRESS=0x...
+NEXT_PUBLIC_TOKEN_ADDRESS=0x...
+NEXT_PUBLIC_HONEY_ADDRESS=0x...
+NEXT_PUBLIC_WEB_BURNER_PASSWORD=your_password
+NEXT_PUBLIC_BYUSD_ADDRESS=0x...
+```
+
+- `ENGINE_URL` - Bundler endpoint for gasless transactions
+- `PAYMASTER_ADDRESS` - Paymaster contract (sponsors gas)
+- `TOKEN_ADDRESS` - SFLUV token contract
+- `HONEY_ADDRESS` - Underlying HONEY token
+- `WEB_BURNER_PASSWORD` - Password for temporary wallets
+- `BYUSD_ADDRESS` - Stablecoin for swaps
+
+<Tip>
+Find paymaster addresses in [CitizenWallet config](https://config.internal.citizenwallet.xyz/v4/communities.json).
+</Tip>
+
+### Google Maps
+
+```bash
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIza...
+NEXT_PUBLIC_MAP_ID=your_map_id
+```
+
+- Required for merchant location map
+
+### Idle Timer
+
+```bash
+NEXT_PUBLIC_IDLE_TIMER_TIMEOUT_SECONDS=600
+NEXT_PUBLIC_IDLE_TIMER_PROMPT_SECONDS=60
+```
+
+- `TIMEOUT_SECONDS` - Auto-logout after inactivity (default: 10 min)
+- `PROMPT_SECONDS` - Warning before logout (default: 60 sec)
+
+### Token Decimals
+
+```bash
+NEXT_PUBLIC_HONEY_DECIMALS=18
+NEXT_PUBLIC_BACKING_ASSETS=
+```
+
+---
+
+## Ponder Environment Variables
+
+Location: `ponder/.env`
+
+### RPC Configuration
+
+```bash
+PONDER_RPC_URL_1=https://rpc.berachain.com
+```
+
+- `PONDER_RPC_URL_1` - Blockchain RPC endpoint (Alchemy recommended)
+
+### Database
+
+```bash
+DATABASE_URL=postgresql://postgres:password@localhost:5432/ponder
+```
+
+- If not provided, SQLite will be used (not recommended for production)
+
+### Authentication
+
+```bash
+ADMIN_KEY=your_admin_secret_key
+```
+
+- Must match backend `ADMIN_KEY` for webhook authentication
+
+### W9 Configuration
+
+```bash
+PAID_ADMIN_ADDRESSES=0x...,0x...
+W9_TRANSACTION_URL=http://localhost:8080/w9/transaction
+```
+
+- `PAID_ADMIN_ADDRESSES` - Wallets exempt from W9 tracking (must match backend)
+- `W9_TRANSACTION_URL` - Backend endpoint to POST W9 transactions
+
+---
+
+## Test Environment (Anvil)
+
+Location: `scripts/anvil.env`
+
+For local blockchain fork testing:
+
+```bash
+ANVIL_FORK_URL=https://rpc.berachain.com
+ANVIL_FORK_BLOCK=1234567
+ANVIL_CHAIN_ID=80084
+ANVIL_UNLOCK=0x...  # Faucet address to impersonate
+```
+
+Used by `scripts/start_anvil_test.sh` and W9 test scripts.
+
+---
+
+## Environment Loading
+
+### Backend
+
+```go
+// main.go loads .env automatically
+if envFile := os.Getenv("ENV_FILE"); envFile != "" {
+    _ = godotenv.Load(envFile)
+} else {
+    godotenv.Load()
+}
+```
+
+- Set `ENV_FILE` to override default `.env` location
+
+### Frontend
+
+Next.js loads `.env.local` > `.env` automatically. No code required.
+
+### Ponder
+
+Uses dotenv. Override with shell exports before running:
+
+```bash
+export PONDER_RPC_URL_1="http://127.0.0.1:8545"
+pnpm dev
+```
+
+---
+
+## Security Best Practices
+
+<Warning>
+- **Never commit `.env` files** - they contain secrets
+- Add `.env` to `.gitignore`
+- Use `.env.example` as templates (with dummy values)
+- Rotate keys regularly
+- Use environment variables in CI/CD, not hardcoded secrets
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Database Schema" icon="database" href="/dev/database">
+    Understand the three database structures
+  </Card>
+  <Card title="Anvil Testing" icon="flask" href="/dev/anvil-testing">
+    Test W9 and blockchain flows locally
+  </Card>
+</CardGroup>

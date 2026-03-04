@@ -1,0 +1,419 @@
+---
+title: "Calendar View"
+description: "Track volunteer opportunities and workflow deadlines in a calendar interface"
+---
+
+## Overview
+
+The Calendar feature provides a visual monthly view for tracking registered volunteer opportunities and workflow deadlines. Users can see upcoming commitments, mark completed opportunities, and sync with Google Calendar.
+
+**File Reference**: `frontend/app/calendar/page.tsx:15`
+
+## Key Features
+
+### Monthly Calendar View
+
+Displays a traditional calendar grid with:
+
+- **Day Headers** - Sun through Sat
+- **Current Day Highlight** - Highlighted with secondary background color
+- **Empty Cells** - For days before the first of the month
+- **Day Numbers** - Each day shows its numeric value
+- **Opportunity Badges** - Color-coded events within each day
+
+**Code Reference**: `frontend/app/calendar/page.tsx:105-167`
+
+### Opportunity Display
+
+Each day can show multiple opportunities with:
+
+- **Upcoming Opportunities** - Red/pink background (`#eb6c6c` with 20% opacity)
+- **Completed Opportunities** - Gray background with strikethrough
+- **Checkmark Indicator** - ✓ prefix on completed items
+- **Truncated Titles** - Long titles are truncated with ellipsis
+- **Click to View** - Click any opportunity for full details
+
+**Code Reference**: `frontend/app/calendar/page.tsx:129-163`
+
+## Navigation
+
+### Month Navigation
+
+**Previous Month** - Left chevron button
+
+**Next Month** - Right chevron button
+
+**Date Picker** - Calendar icon opens date picker modal for quick navigation
+
+**Today Button** - Jump to current month
+
+**Code Reference**: `frontend/app/calendar/page.tsx:29-58`
+
+### Date Picker Modal
+
+Opens when clicking the calendar icon in the header:
+
+1. Shows year and month selectors
+2. Select target year
+3. Select target month
+4. Calendar updates to selected date
+
+**Code Reference**: `frontend/app/calendar/page.tsx:53-58`, `244-249`
+
+## Opportunity Management
+
+### Registered Opportunities
+
+The calendar displays opportunities from your registered list:
+
+- Data sourced from `useRegisteredOpportunities()` hook
+- Filters `mockOpportunities` by registration status
+- Matches opportunities to dates for display
+
+**Code Reference**: `frontend/app/calendar/page.tsx:8-26`
+
+### Date Matching
+
+Opportunities are matched to calendar days using:
+
+```typescript
+const formatDateForComparison = (date: Date) => {
+  return date.toISOString().split("T")[0]
+}
+
+const getOpportunitiesForDay = (day: number) => {
+  const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
+  const dateString = formatDateForComparison(date)
+  
+  return userOpportunities.filter((opp) => {
+    const oppDate = new Date(opp.date)
+    return formatDateForComparison(oppDate) === dateString
+  })
+}
+```
+
+**Code Reference**: `frontend/app/calendar/page.tsx:70-83`
+
+### Past vs Future
+
+The calendar distinguishes between:
+
+**Past Opportunities**:
+- Gray background (`bg-gray-200` dark:`bg-gray-700`)
+- Strikethrough text
+- Checkmark prefix
+- Dimmed text color
+
+**Upcoming Opportunities**:
+- Red/pink background
+- Normal text
+- Hover effect (opacity increase)
+- Clickable for details
+
+**Code Reference**: `frontend/app/calendar/page.tsx:86-90`, `148-155`
+
+## Opportunity Details Modal
+
+### Opening the Modal
+
+Click any opportunity badge to open details:
+
+```typescript
+const handleOpportunityClick = (opportunity: Opportunity) => {
+  setSelectedOpportunity(opportunity)
+  setIsModalOpen(true)
+}
+```
+
+**Code Reference**: `frontend/app/calendar/page.tsx:93-96`
+
+### Modal Features
+
+The `OpportunityModal` displays:
+
+- **Full Title & Description** - Complete opportunity details
+- **Date & Time** - When the opportunity occurs
+- **Location** - Where to go
+- **Requirements** - What's needed
+- **Registration Status** - Whether you're registered
+- **Cancel Registration** - Button to unregister (if registered)
+
+**Code Reference**: `frontend/app/calendar/page.tsx:251-263`
+
+### Canceling Registration
+
+From the modal, users can:
+
+1. Click "Cancel Registration" button
+2. Confirmation prompt (if implemented)
+3. `cancelRegistration(opportunityId)` is called
+4. Opportunity is removed from calendar
+
+**Code Reference**: `frontend/app/calendar/page.tsx:257-261`
+
+## Google Calendar Sync
+
+### Sync Component
+
+The `GoogleCalendarSync` component provides:
+
+- **Export to Google Calendar** - Generate .ics file or direct sync
+- **Bulk Export** - Export all registered opportunities at once
+- **Event Details** - Includes title, description, date, location
+
+**Code Reference**: `frontend/app/calendar/page.tsx:241`, `12`
+
+### Usage
+
+1. Register for opportunities
+2. Click "Sync with Google Calendar" button
+3. Choose export method (download .ics or direct sync)
+4. Events are added to your Google Calendar
+
+**Note**: Implementation details in `components/calendar/google-calendar-sync.tsx`
+
+## Calendar Calculations
+
+### Days in Month
+
+```typescript
+const getDaysInMonth = (year: number, month: number) => {
+  return new Date(year, month + 1, 0).getDate()
+}
+```
+
+Returns the number of days in the specified month.
+
+**Code Reference**: `frontend/app/calendar/page.tsx:61-63`
+
+### First Day of Month
+
+```typescript
+const getFirstDayOfMonth = (year: number, month: number) => {
+  return new Date(year, month, 1).getDay()
+}
+```
+
+Returns the weekday index (0-6) of the first day of the month.
+
+**Code Reference**: `frontend/app/calendar/page.tsx:65-67`
+
+### Calendar Grid Rendering
+
+The calendar grid is rendered in three phases:
+
+1. **Weekday Headers** - Sun through Sat (7 cells)
+2. **Empty Prefix Cells** - Days before first of month
+3. **Day Cells** - Each day of the month with opportunities
+
+**Code Reference**: `frontend/app/calendar/page.tsx:111-164`
+
+## State Management
+
+### Local State
+
+```typescript
+const [currentDate, setCurrentDate] = useState(new Date())
+const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
+const [isModalOpen, setIsModalOpen] = useState(false)
+const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
+```
+
+**Code Reference**: `frontend/app/calendar/page.tsx:20-23`
+
+### Global State
+
+Uses `useRegisteredOpportunities()` hook for:
+
+- `registeredOpportunities` - Array of registered opportunity IDs
+- `isRegistered(id)` - Check registration status
+- `cancelRegistration(id)` - Unregister from opportunity
+
+**Code Reference**: `frontend/app/calendar/page.tsx:17`
+
+## UI Components
+
+### Card Components
+
+- **Card** - Main calendar container
+- **CardHeader** - Month/year display and navigation controls
+- **CardContent** - Calendar grid and legend
+
+**Code Reference**: `frontend/app/calendar/page.tsx:176-226`
+
+### Navigation Controls
+
+- **Button** - Previous/next month, date picker, today
+- **ChevronLeft/Right** - Navigation icons
+- **CalendarIcon** - Date picker trigger
+
+**Code Reference**: `frontend/app/calendar/page.tsx:182-206`
+
+### Modals
+
+- **OpportunityModal** - Opportunity details and actions
+- **DatePickerModal** - Year/month quick navigation
+
+**Code Reference**: `frontend/app/calendar/page.tsx:244-263`
+
+## Visual Legend
+
+The calendar includes a color-coded legend:
+
+```
+🟥 Red/Pink - Upcoming Opportunity
+⬜ Gray - Completed Opportunity  
+🟦 Blue - Today
+```
+
+**Code Reference**: `frontend/app/calendar/page.tsx:211-224`
+
+## Responsive Design
+
+The calendar adapts to different screen sizes:
+
+- **Desktop** - Full 7-column grid with spacious day cells
+- **Tablet** - Compact grid with smaller fonts
+- **Mobile** - Scrollable grid, abbreviated day names possible
+
+### Grid Layout
+
+```typescript
+<div className="grid grid-cols-7 gap-0">
+  {renderCalendar()}
+</div>
+```
+
+Fixed 7-column grid for week structure.
+
+**Code Reference**: `frontend/app/calendar/page.tsx:209`
+
+### Day Cell Sizing
+
+```typescript
+className="p-2 border min-h-[100px]"
+```
+
+Minimum 100px height ensures room for multiple opportunities.
+
+**Code Reference**: `frontend/app/calendar/page.tsx:136`
+
+## Data Flow
+
+### Loading Opportunities
+
+1. Component mounts
+2. `useRegisteredOpportunities()` loads user's registrations
+3. `mockOpportunities` filtered by registration status
+4. Opportunities mapped to calendar dates
+5. Calendar renders with opportunity badges
+
+### User Interactions
+
+1. **Click Opportunity** → Opens modal with details
+2. **Cancel Registration** → Removes from calendar, updates state
+3. **Navigate Month** → Recalculates grid, fetches new date range
+4. **Open Date Picker** → Shows year/month selector
+5. **Sync Calendar** → Exports to Google Calendar
+
+## Integration Points
+
+### Hooks
+
+- `useRegisteredOpportunities()` - Registration state management
+- `useRouter()` - Navigation (if needed)
+
+**Code Reference**: `frontend/app/calendar/page.tsx:16-17`
+
+### Components
+
+- `OpportunityModal` - Details display
+- `DatePickerModal` - Date navigation
+- `GoogleCalendarSync` - External calendar integration
+
+**Code Reference**: `frontend/app/calendar/page.tsx:11-13`
+
+### Types
+
+```typescript
+import type { Opportunity } from "@/types/opportunity"
+```
+
+Defines opportunity data structure.
+
+**Code Reference**: `frontend/app/calendar/page.tsx:11`
+
+## Best Practices
+
+### Performance
+
+1. **Memoization** - Consider memoizing `getOpportunitiesForDay()` for large datasets
+2. **Virtual Scrolling** - For year views or many opportunities per day
+3. **Lazy Loading** - Load only current month's data initially
+
+### User Experience
+
+1. **Clear Visual Hierarchy** - Distinct colors for past/future
+2. **Intuitive Navigation** - Multiple navigation methods (arrows, today, date picker)
+3. **Touch Targets** - Large clickable areas for mobile
+4. **Loading States** - Show skeleton while data loads
+
+### Accessibility
+
+1. **Keyboard Navigation** - Support arrow keys for month navigation
+2. **Screen Reader Labels** - Announce dates and opportunity counts
+3. **Focus Management** - Return focus after modal close
+4. **Color Contrast** - Ensure text readable on all backgrounds
+
+## Troubleshooting
+
+### Common Issues
+
+**Opportunities Not Showing**
+- Verify registration status in `registeredOpportunities`
+- Check date matching logic (timezone issues)
+- Confirm `mockOpportunities` contains expected data
+
+**Date Calculations Off**
+- Check timezone conversions (use UTC consistently)
+- Verify `getFirstDayOfMonth()` returns correct weekday
+- Ensure month indexing (0-11) is correct
+
+**Modal Not Opening**
+- Verify `handleOpportunityClick()` is called
+- Check `isModalOpen` state updates
+- Confirm `selectedOpportunity` is set correctly
+
+### Debugging Tips
+
+```typescript
+// Log opportunities for specific day
+console.log(getOpportunitiesForDay(15))
+
+// Verify date matching
+const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), 15)
+console.log(formatDateForComparison(date))
+
+// Check registration status
+console.log(registeredOpportunities)
+```
+
+## Future Enhancements
+
+### Potential Features
+
+1. **Week View** - Alternative layout showing single week
+2. **Agenda View** - List of upcoming opportunities
+3. **Filters** - Filter by opportunity type, location, etc.
+4. **Search** - Find specific opportunities
+5. **Notifications** - Reminders for upcoming commitments
+6. **Multi-Select** - Bulk actions on opportunities
+7. **Recurring Events** - Handle repeating opportunities
+8. **Timezone Support** - Display in user's local timezone
+
+### Integration Opportunities
+
+1. **Workflow Deadlines** - Show workflow `start_at` and completion deadlines
+2. **Step Deadlines** - Display individual step due dates
+3. **Team Calendar** - View other team members' availability
+4. **Conflict Detection** - Warn about overlapping commitments

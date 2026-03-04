@@ -1,0 +1,411 @@
+---
+title: 'Issuer Guide'
+description: 'Learn how to review credential requests and grant or revoke credentials as an issuer'
+---
+
+# Issuer Guide
+
+Issuers review and approve credential requests from improvers. Credentials gate access to workflow roles, ensuring only qualified improvers can claim specific types of work. This guide covers managing credential scopes and processing requests.
+
+## Getting Started
+
+### Requesting Issuer Access
+
+<Steps>
+  <Step title="Navigate to Settings">
+    Go to `/settings` and request issuer status if you're not already approved.
+  </Step>
+  
+  <Step title="Wait for Admin Approval">
+    An admin will review your request and assign issuer role with specific credential scopes.
+  </Step>
+  
+  <Step title="Access the Issuer Panel">
+    Once approved, navigate to `/issuer` to see your credential scope and pending requests.
+  </Step>
+</Steps>
+
+<Info>
+  Admin approval includes assigning which credential types you can grant. You can only approve requests for credentials in your scope.
+</Info>
+
+## Understanding Credentials
+
+### What Are Credentials?
+
+Credentials are qualifications that improvers earn to access specific workflow roles. Examples:
+- `dpw_certified`: Department of Public Works certification
+- `sfluv_verifier`: SFLUV community verifier status
+
+Proposers require specific credentials for workflow roles. Improvers can only claim steps in roles matching their active credentials.
+
+### Credential Scopes
+
+Your issuer scope determines which credential types you can grant or revoke:
+
+- **Personal Scopes**: Most issuers have specific credentials they can manage
+- **Admin Scope**: Admins can manage all credential types
+
+<Steps>
+  <Step title="View Your Scope">
+    In the issuer panel, the "Your Credential Scope" card shows which credentials you can grant.
+  </Step>
+  
+  <Step title="Understand Limitations">
+    You can only see and approve requests for credentials in your scope.
+  </Step>
+</Steps>
+
+## Reviewing Credential Requests
+
+### Viewing Pending Requests
+
+<Steps>
+  <Step title="Navigate to Credential Requests Section">
+    In the issuer panel, scroll to the "Credential Requests" card.
+  </Step>
+  
+  <Step title="Use Filters">
+    Filter requests by:
+    - **Status**: All, Pending, Approved, Rejected
+    - **Credential Type**: All, or specific credentials in your scope
+  </Step>
+  
+  <Step title="Search Requests">
+    Use the search box to find requests by requester name or email.
+  </Step>
+  
+  <Step title="Navigate Pages">
+    Use Previous/Next buttons to browse through requests (20 per page).
+  </Step>
+</Steps>
+
+### Understanding Request Information
+
+Each request card shows:
+- **Requester Name**: Improver's display name
+- **Requester Email**: Improver's verified email
+- **Credential Type**: Which credential they're requesting
+- **Request Date**: When the request was submitted
+- **Status Badge**: Pending (yellow), Approved (green), or Rejected (red)
+
+### Opening Request Details
+
+<Steps>
+  <Step title="Click a Request Card">
+    Open the request details modal.
+  </Step>
+  
+  <Step title="Review Requester Information">
+    The modal shows:
+    - Requester name and email
+    - Requester user ID (for record-keeping)
+    - Credential type being requested
+    - Current status
+  </Step>
+</Steps>
+
+## Approving or Rejecting Requests
+
+### Making a Decision
+
+<Steps>
+  <Step title="Verify Qualifications">
+    Before approving, verify the improver meets requirements for this credential:
+    - Check training completion
+    - Verify certifications
+    - Confirm identity (if required)
+    - Review past work quality (if applicable)
+    - Consult with credential-specific criteria
+  </Step>
+  
+  <Step title="Open Request Details">
+    Click on a pending request to open the modal.
+  </Step>
+  
+  <Step title="Change Approval Status">
+    In the "Change Approval Status" dropdown, select:
+    - **Pending**: Keep in review queue
+    - **Approved**: Grant the credential
+    - **Rejected**: Deny the credential
+  </Step>
+  
+  <Step title="Save Changes">
+    Click "Save Changes" to record your decision.
+  </Step>
+  
+  <Step title="Improver Notified">
+    The improver's credential status updates immediately:
+    - **Approved**: Credential added to their active credentials
+    - **Rejected**: Request marked as rejected (improver can request again)
+  </Step>
+</Steps>
+
+<Warning>
+  Approving a credential grants immediate access to all workflow roles requiring that credential. Ensure requesters are qualified.
+</Warning>
+
+### Changing Previous Decisions
+
+You can change approval status even after initial decision:
+
+<Steps>
+  <Step title="Find the Request">
+    Use filters to find approved or rejected requests.
+  </Step>
+  
+  <Step title="Open Request Details">
+    Click to open the modal.
+  </Step>
+  
+  <Step title="Change Status">
+    Select a different status from the dropdown:
+    - **Pending**: Move back to review queue
+    - **Approved**: Grant or re-grant credential
+    - **Rejected**: Deny or revoke credential
+  </Step>
+  
+  <Step title="Save Changes">
+    The new status takes effect immediately.
+  </Step>
+</Steps>
+
+<Info>
+  Changing an approved request to rejected effectively **revokes** the credential from the improver.
+</Info>
+
+## Revoking Credentials
+
+To revoke a credential from an improver:
+
+<Steps>
+  <Step title="Find Approved Request">
+    Filter by "Approved" status and search for the improver.
+  </Step>
+  
+  <Step title="Open Request Details">
+    Click to open the modal.
+  </Step>
+  
+  <Step title="Change to Rejected">
+    Select "Rejected" from the status dropdown.
+  </Step>
+  
+  <Step title="Save Changes">
+    The credential is immediately revoked.
+    
+    The improver:
+    - Loses access to roles requiring this credential
+    - Cannot claim new steps in those roles
+    - Retains existing claimed steps (not automatically released)
+  </Step>
+</Steps>
+
+<Warning>
+  Credential revocation does NOT automatically release existing step claims. The improver can complete already-claimed work.
+</Warning>
+
+## Granting Credentials Directly
+
+Currently, credentials are granted via the request approval flow. Direct credential granting (without a request) uses these endpoints:
+
+- `POST /issuers/credentials` - Issue credential to a user
+- `DELETE /issuers/credentials` - Revoke credential from a user
+- `GET /issuers/credentials/{user_id}` - View user's credentials
+- `GET /issuers/users/by-address/{address}` - Look up user by wallet address
+
+<Info>
+  Direct credential management via API is available for programmatic integrations and bulk operations.
+</Info>
+
+## Best Practices for Issuers
+
+<AccordionGroup>
+  <Accordion title="Maintain Clear Criteria">
+    Establish and document requirements for each credential:
+    - Training or certification requirements
+    - Work experience or references
+    - Identity verification process
+    - Renewal or review schedules
+    
+    Consistent criteria ensure fair and reliable credentialing.
+  </Accordion>
+  
+  <Accordion title="Respond Promptly">
+    Process credential requests quickly:
+    - Review pending requests regularly
+    - Communicate with requesters if more information is needed
+    - Avoid bottlenecking improver onboarding
+    - Set expectations for review timelines
+  </Accordion>
+  
+  <Accordion title="Verify Thoroughly">
+    Don't rubber-stamp requests:
+    - Check training completion
+    - Verify certifications are current
+    - Confirm identity when required
+    - Review work history if available
+    - Use judgment and due diligence
+  </Accordion>
+  
+  <Accordion title="Document Decisions">
+    Keep records of approval rationale:
+    - Note verification steps completed
+    - Record any concerns or special conditions
+    - Track renewal dates or review schedules
+    - Document reasons for rejection
+  </Accordion>
+  
+  <Accordion title="Monitor Credential Holders">
+    Stay engaged with credentialed improvers:
+    - Track work quality via workflow submissions
+    - Review complaints or issues
+    - Revoke credentials if standards aren't maintained
+    - Provide feedback and coaching
+    - Update credential requirements as needed
+  </Accordion>
+  
+  <Accordion title="Communicate Clearly">
+    Keep improvers informed:
+    - Set expectations for approval timeline
+    - Explain rejection reasons
+    - Provide guidance on reapplication
+    - Share credential renewal requirements
+    - Answer questions about qualifications
+  </Accordion>
+</AccordionGroup>
+
+## Managing Multiple Credential Types
+
+If your scope includes multiple credential types:
+
+<Steps>
+  <Step title="Use Credential Filter">
+    Filter requests by specific credential type to focus on one at a time.
+  </Step>
+  
+  <Step title="Establish Type-Specific Processes">
+    Different credentials may have different requirements:
+    - Technical certifications may require exam scores
+    - Community verifiers may need reference checks
+    - Specialized roles may need portfolio review
+  </Step>
+  
+  <Step title="Track Type-Specific Metrics">
+    Monitor:
+    - Approval rates by credential type
+    - Time-to-approval by type
+    - Revocation rates by type
+    - Work quality by credential holders
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Can't see a request">
+    Possible reasons:
+    - Request is for a credential outside your scope
+    - Requester hasn't submitted the request yet
+    - Request was processed by another issuer
+    - Filters are hiding the request
+    
+    **Solution**: Check filters, verify credential scope, or contact admins.
+  </Accordion>
+  
+  <Accordion title="Status change not saving">
+    Check:
+    - You're logged in with issuer access
+    - The credential is in your scope
+    - Network connection is stable
+    
+    **Solution**: Refresh page and try again. Contact admins if issue persists.
+  </Accordion>
+  
+  <Accordion title="Improver still has credential after rejection">
+    There may be a delay:
+    - Refresh the improver's view
+    - Check if request status actually updated
+    - Verify you saved changes
+    
+    **Solution**: Confirm rejection was saved. Contact admins if credential persists.
+  </Accordion>
+  
+  <Accordion title="Can't revoke credential">
+    Revocation is done by changing approved request status to rejected:
+    1. Filter by "Approved" status
+    2. Find the improver's request
+    3. Open details and change to "Rejected"
+    4. Save changes
+    
+    If the improver never had a request (direct grant by admin), contact an admin to revoke.
+  </Accordion>
+</AccordionGroup>
+
+## Understanding the Improver Perspective
+
+Knowing how improvers interact with credentials helps you serve them better:
+
+1. **Improver requests credential** via their improver panel
+2. **Request appears in your queue** (if credential is in your scope)
+3. **You review and approve/reject**
+4. **Improver sees status update** in their credentials tab
+5. **If approved**: Improver can now claim steps in roles requiring this credential
+6. **If rejected**: Improver can request again (after addressing issues)
+
+Improvers are notified of status changes and can see pending, approved, and rejected requests.
+
+## Working with Admins
+
+### Requesting Scope Changes
+
+If you need to grant credentials outside your current scope:
+
+<Steps>
+  <Step title="Contact an Admin">
+    Request scope expansion with justification.
+  </Step>
+  
+  <Step title="Admin Updates Your Scope">
+    Admin modifies your issuer scopes via admin panel.
+  </Step>
+  
+  <Step title="New Credentials Appear">
+    Refresh your issuer panel to see expanded scope.
+  </Step>
+</Steps>
+
+### Escalating Issues
+
+Contact admins for:
+- Requests requiring special verification
+- Credential revocations without a request record
+- Policy questions or edge cases
+- Technical issues with the issuer panel
+
+## API Endpoints Reference
+
+**Issuer routes** (require issuer or admin role):
+
+- `POST /issuers/request` - Request issuer status
+- `GET /issuers/scopes` - Get your credential scopes
+- `GET /issuers/credential-requests` - List requests (paginated)
+- `POST /issuers/credential-requests/{request_id}/decision` - Approve/reject request
+- `POST /issuers/credentials` - Issue credential directly
+- `DELETE /issuers/credentials` - Revoke credential directly
+- `GET /issuers/credentials/{user_id}` - View user's credentials
+- `GET /issuers/users/by-address/{address}` - Look up user by address
+
+**Admin routes** (for managing issuers):
+- `GET /admin/issuers` - List all issuers
+- `PUT /admin/issuers` - Update issuer scopes
+- `GET /admin/issuer-requests` - List issuer access requests
+- `PUT /admin/issuer-requests` - Approve/reject issuer requests
+- `GET /admin/credential-types` - List credential types
+- `POST /admin/credential-types` - Create credential type
+- `DELETE /admin/credential-types/{value}` - Delete credential type
+
+## Related Resources
+
+- [Improver Guide](/guides/improvers) - How improvers request and use credentials
+- [Proposer Guide](/guides/proposers) - How credentials are used in workflow roles

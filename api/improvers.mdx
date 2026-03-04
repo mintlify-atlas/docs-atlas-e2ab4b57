@@ -1,0 +1,381 @@
+---
+title: Improver API
+description: API endpoints for improvers to claim, start, and complete workflow steps
+---
+
+## Overview
+
+Improvers are workers who complete workflow steps and earn bounties. All improver endpoints require authentication and the improver role (or admin override).
+
+## Authentication
+
+All endpoints use the `withImprover` middleware which:
+- Requires a valid JWT token with `userDid` in context
+- Checks if user has improver role via `IsImprover()`
+- Admin users automatically bypass role checks
+
+## Request Improver Status
+
+### POST /improvers/request
+
+Request improver status for authenticated user.
+
+**Request Body**
+```json
+{
+  "first_name": "string",       // Required
+  "last_name": "string",        // Required
+  "email": "string"             // Required: must be verified
+}
+```
+
+**Response: 201 Created**
+```json
+{
+  "user_id": "did:privy:...",
+  "first_name": "Jane",
+  "last_name": "Smith",
+  "email": "jane@example.com",
+  "is_approved": false,
+  "created_at": "2024-03-15T10:30:00Z"
+}
+```
+
+**Error Codes**
+- `400`: Missing fields, invalid email, or email not verified
+- `409`: User already has approved improver status
+
+---
+
+## Workflow Discovery
+
+### GET /improvers/workflows
+
+Get all workflows available to the improver based on their credentials.
+
+**Filtering Logic**:
+- Shows workflows where improver:
+  - Has claimed at least one step
+  - Is the manager
+  - Qualifies as manager (has required credentials)
+  - Has credentials matching available unclaimed steps
+
+**Response: 200 OK**
+```json
+{
+  "active_credentials": ["dpw_certified", "sfluv_verifier"],
+  "workflows": [
+    {
+      "id": "uuid",
+      "title": "Park Cleanup - Week 12",
+      "status": "approved",
+      "start_at": 1710921600,
+      "recurrence": "weekly",
+      "series_id": "uuid",
+      "manager_required": true,
+      "manager_improver_id": null,
+      "manager_bounty": "10000000000000000000",
+      "steps": [
+        {
+          "id": "uuid",
+          "title": "Setup",
+          "step_order": 1,
+          "status": "available",
+          "bounty": "5000000000000000000",
+          "role_id": "uuid",
+          "assigned_improver_id": null,
+          "work_items": [...]
+        }
+      ],
+      "roles": [
+        {
+          "id": "uuid",
+          "title": "Field Worker",
+          "required_credentials": ["dpw_certified"]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### GET /improvers/unpaid-workflows
+
+Get workflows where improver has completed steps but hasn't received payout yet.
+
+**Response: 200 OK**
+Returns array of workflows with improver's completed but unpaid steps.
+
+---
+
+## Step Claiming and Execution
+
+### POST /improvers/workflows/{workflow_id}/steps/{step_id}/claim
+
+Claim an available workflow step.
+
+**Requirements**:
+- Step status must be `available`
+- Improver must have all required credentials for the step's role
+- Improver must not be in an absence period for this series/step
+- For recurring workflows: checks for existing claims
+
+**Response: 200 OK**
+Returns updated workflow with step now assigned to improver.
+
+**Error Codes**
+- `400`: Step not available, missing role, or no credential requirements defined
+- `403`: Missing required credentials
+- `409`: Step already claimed/assigned, or improver has active absence period
+- `404`: Workflow or step not found
+
+### POST /improvers/workflows/{workflow_id}/steps/{step_id}/start
+
+Start working on a claimed step (changes status from `available` to `in_progress`).
+
+**Requirements**:
+- Step must be assigned to authenticated improver
+- Workflow must be active
+- Step must not already be completed
+
+**Response: 200 OK**
+Returns updated workflow.
+
+**Error Codes**
+- `403`: Step not assigned to user
+- `409`: Step not available yet, workflow not active, or already completed
+
+### POST /improvers/workflows/{workflow_id}/steps/{step_id}/complete
+
+Submit completion for a workflow step.
+
+**Request Body**
+```json
+{
+  "step_not_possible": false,
+  "step_not_possible_details": "",
+  "items": [
+    {
+      "item_id": "uuid",
+      "dropdown_value": "Option A",
+      "written_response": "Additional notes here",
+      "photo_ids": ["uuid1", "uuid2"]
+    }
+  ]
+}
+```
+
+**Validation**:
+- All non-optional work items must have responses
+- Photo requirements must be met
+- Dropdown selections must be valid
+- Written responses required if specified
+
+**Response: 200 OK**
+Returns updated workflow with step marked as `completed`.
+
+**Side Effects**:
+- Next step in sequence becomes `available`
+- Sends availability notifications to eligible improvers
+- Sends email notifications if dropdown options have `notify_emails`
+- Triggers payout processing if all steps complete
+
+**Error Codes**
+- `400`: Missing required responses, invalid item IDs, duplicate items
+- `403`: Step not assigned to user
+- `404`: Workflow or step not found
+
+### POST /improvers/workflows/{workflow_id}/steps/{step_id}/payout-request
+
+Request retry of a failed payout for a completed step.
+
+**Response: 200 OK**
+Returns updated workflow after retry attempt.
+
+**Error Codes**
+- `409`: No failed payout found for this step
+
+---
+
+## Recurring Workflow Management
+
+### GET /improvers/workflows/absence-periods
+
+Get improver's absence periods for recurring workflow series.
+
+**Response: 200 OK**
+```json
+[
+  {
+    "id": "uuid",
+    "improver_id": "did:privy:...",
+    "series_id": "uuid",
+    "step_order": 2,
+    "absent_from": 1710921600,
+    "absent_until": 1711526400,
+    "created_at": 1710835200
+  }
+]
+```
+
+### POST /improvers/workflows/absence-periods
+
+Create an absence period to temporarily release a recurring claim.
+
+**Request Body**
+```json
+{
+  "series_id": "uuid",
+  "step_order": 2,
+  "absent_from": "2024-03-20T00:00:00Z",
+  "absent_until": "2024-03-27T00:00:00Z"
+}
+```
+
+**Requirements**:
+- Must have a claimed recurring workpiece for this series/step
+- Date range must be valid (from < until, both in future)
+- Cannot overlap with existing absence periods
+
+**Response: 201 Created**
+
+**Error Codes**
+- `400`: Invalid dates, required fields missing, or overlapping periods
+- `409`: No claimed recurring workpiece found
+
+### PUT /improvers/workflows/absence-periods/{absence_id}
+
+Update an existing absence period.
+
+**Request Body**
+```json
+{
+  "absent_from": "2024-03-20T00:00:00Z",
+  "absent_until": "2024-03-27T00:00:00Z"
+}
+```
+
+**Response: 200 OK**
+
+**Error Codes**
+- `404`: Absence period not found or not owned by improver
+- `400`: Invalid date range or overlapping periods
+- `409`: Another improver already claimed the workpiece
+
+### DELETE /improvers/workflows/absence-periods/{absence_id}
+
+Delete an absence period.
+
+**Response: 200 OK**
+
+**Error Codes**
+- `404`: Not found
+- `409`: Another improver already claimed the released workpiece
+
+### POST /improvers/workflow-series/unclaim
+
+Release a recurring workflow claim for a specific series and step.
+
+**Request Body**
+```json
+{
+  "series_id": "uuid",
+  "step_order": 2
+}
+```
+
+**Response: 200 OK**
+
+**Error Codes**
+- `400`: Invalid series_id or step_order
+- `409`: No claimed recurring workpiece or no claimable assignments found
+
+---
+
+## Rewards Account Management
+
+### PUT /improvers/primary-rewards-account
+
+Update the Ethereum address for receiving bounty payouts.
+
+**Request Body**
+```json
+{
+  "primary_rewards_account": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+}
+```
+
+**Validation**:
+- Must be a valid Ethereum address
+- Improver must be approved
+
+**Response: 200 OK**
+
+**Error Codes**
+- `400`: Invalid Ethereum address or improver not approved
+- `404`: Improver record not found
+
+---
+
+## Credential Requests
+
+### GET /improvers/credential-requests
+
+Get improver's credential requests.
+
+**Response: 200 OK**
+```json
+[
+  {
+    "id": "uuid",
+    "user_id": "did:privy:...",
+    "credential_type": "dpw_certified",
+    "status": "pending",
+    "requested_at": "2024-03-15T10:30:00Z",
+    "resolved_at": null,
+    "resolved_by": null
+  }
+]
+```
+
+### POST /improvers/credential-requests
+
+Request a new credential.
+
+**Request Body**
+```json
+{
+  "credential_type": "dpw_certified"
+}
+```
+
+**Response: 201 Created**
+
+Sends email notifications to all issuers who can grant this credential.
+
+**Error Codes**
+- `400`: Invalid credential type
+- `404`: Credential type not found
+- `409`: Already have active credential or pending request
+
+---
+
+## Step Status Flow
+
+```
+locked → available → (claimed) → in_progress → completed → paid_out
+```
+
+- **locked**: Previous step not yet completed
+- **available**: Ready to be claimed
+- **in_progress**: Claimed and started by an improver
+- **completed**: Submission received, awaiting payout
+- **paid_out**: Bounty sent to improver's rewards account
+
+## Notes
+
+- Workflows are filtered by credentials - improvers only see workflows with steps they qualify for
+- Recurring workflows require claim management via absence periods or explicit unclaiming
+- Submission data is only visible to assigned improver, supervisor, and admin
+- Payout processing is triggered automatically after step completion
+- Failed payouts can be retried via the payout-request endpoint

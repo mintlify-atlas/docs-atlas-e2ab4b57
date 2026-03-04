@@ -1,0 +1,566 @@
+---
+title: "Token Unwrapping"
+description: "Unwrap SFLUV tokens back to HONEY with eligibility checks and monthly limits"
+---
+
+## Overview
+
+Token Unwrapping allows authorized users to convert SFLUV tokens back to the underlying HONEY token. The feature includes eligibility checks, monthly unwrap limits, and minimum follow-up amounts to prevent abuse.
+
+**File Reference**: `backend/handlers/unwrap.go:26`
+
+## Key Concepts
+
+### Unwrap Eligibility
+
+Not all wallets can unwrap. Eligibility requirements:
+
+1. **Wallet Must Be Registered** - In user's wallet list
+2. **Redeemer Flag** - Wallet must have `is_redeemer: true`
+3. **Monthly Limit** - First unwrap per month unrestricted
+4. **Follow-up Minimum** - Additional unwraps same month require ≥$100
+
+**Code Reference**: `backend/handlers/unwrap.go:56-81`
+
+### Minimum Follow-up Amount
+
+After unwrapping once in a calendar month, subsequent unwraps require:
+
+```typescript
+const minimumFollowupUnwrapAmountWei = "100000000000000000000" // 100 SFLUV
+```
+
+This prevents repeated small unwraps and associated processing costs.
+
+**Code Reference**: `backend/handlers/unwrap.go:15-18`
+
+## Eligibility Check Flow
+
+### 1. Check Unwrap Eligibility
+
+**Endpoint**: `POST /unwrap/check-eligibility`
+
+**Request**:
+```json
+{
+  "wallet_address": "0xuser...",
+  "amount_wei": "50000000000000000000"  // 50 SFLUV
+}
+```
+
+**Code Reference**: `backend/handlers/unwrap.go:26-111`
+
+### 2. Validation Steps
+
+The endpoint performs these checks:
+
+#### a. Authenticate User
+
+```go
+userDid := utils.GetDid(r)
+if userDid == nil {
+    w.WriteHeader(http.StatusUnauthorized)
+    return
+}
+```
+
+User must be authenticated via Privy JWT.
+
+**Code Reference**: `backend/handlers/unwrap.go:27-31`
+
+#### b. Validate Request Body
+
+```go
+if req.WalletAddress == "" || req.AmountWei == "" {
+    w.WriteHeader(http.StatusBadRequest)
+    return
+}
+
+amountWei := new(big.Int)
+if _, ok := amountWei.SetString(req.AmountWei, 10); !ok || amountWei.Sign() <= 0 {
+    w.WriteHeader(http.StatusBadRequest)
+    return
+}
+```
+
+Ensures wallet address and valid positive amount provided.
+
+**Code Reference**: `backend/handlers/unwrap.go:45-54`
+
+#### c. Verify Wallet Ownership
+
+```go
+wallet, err := a.db.GetWalletByUserAndAddress(r.Context(), *userDid, req.WalletAddress)
+if err != nil {
+    if err == pgx.ErrNoRows {
+        w.WriteHeader(http.StatusForbidden)
+        return
+    }
+    // ...
+}
+```
+
+Wallet must belong to authenticated user.
+
+**Code Reference**: `backend/handlers/unwrap.go:56-65`
+
+#### d. Check Redeemer Status
+
+```go
+if !wallet.IsRedeemer {
+    resp := structs.UnwrapEligibilityResponse{
+        Allowed:                  false,
+        Reason:                   "Wallet is not unwrap-enabled",
+        LastUnwrapAt:             wallet.LastUnwrapAt,
+        MinimumFollowupAmountWei: minimumFollowupUnwrapAmountWei.String(),
+    }
+    // ...
+    w.WriteHeader(http.StatusForbidden)
+    w.Write(bytes)
+    return
+}
+```
+
+Only redeemer wallets can unwrap.
+
+**Code Reference**: `backend/handlers/unwrap.go:66-81`
+
+#### e. Check Monthly Limit
+
+```go
+func isSameUTCMonth(t1 time.Time, t2 time.Time) bool {
+    a := t1.UTC()
+    b := t2.UTC()
+    return a.Year() == b.Year() && a.Month() == b.Month()
+}
+
+now := time.Now().UTC()
+allowed := true
+reason := ""
+
+if wallet.LastUnwrapAt != nil && 
+   isSameUTCMonth(*wallet.LastUnwrapAt, now) && 
+   amountWei.Cmp(minimumFollowupUnwrapAmountWei) < 0 {
+    allowed = false
+    reason = "You already unwrapped this month. Additional unwraps this month must be at least $100."
+}
+```
+
+If unwrapped this month AND amount less than $100, deny.
+
+**Code Reference**: `backend/handlers/unwrap.go:20-24`, `83-89`
+
+### 3. Response Format
+
+**Allowed**:
+```json
+{
+  "allowed": true,
+  "reason": "",
+  "last_unwrap_at": "2026-02-15T10:30:00Z",
+  "minimum_followup_amount_wei": "100000000000000000000"
+}
+```
+HTTP 200 OK
+
+**Denied - Not Redeemer**:
+```json
+{
+  "allowed": false,
+  "reason": "Wallet is not unwrap-enabled",
+  "last_unwrap_at": null,
+  "minimum_followup_amount_wei": "100000000000000000000"
+}
+```
+HTTP 403 Forbidden
+
+**Denied - Monthly Limit**:
+```json
+{
+  "allowed": false,
+  "reason": "You already unwrapped this month. Additional unwraps this month must be at least $100.",
+  "last_unwrap_at": "2026-03-01T10:30:00Z",
+  "minimum_followup_amount_wei": "100000000000000000000"
+}
+```
+HTTP 403 Forbidden
+
+**Code Reference**: `backend/handlers/unwrap.go:91-111`
+
+## Recording Unwrap
+
+After successful blockchain transaction:
+
+### Record Unwrap Endpoint
+
+**Endpoint**: `POST /unwrap/record`
+
+**Request**:
+```json
+{
+  "wallet_address": "0xuser..."
+}
+```
+
+Amount is not required for recording - only that unwrap occurred.
+
+**Code Reference**: `backend/handlers/unwrap.go:113-175`
+
+### Recording Flow
+
+#### a. Authenticate & Validate
+
+```go
+userDid := utils.GetDid(r)
+if userDid == nil {
+    w.WriteHeader(http.StatusUnauthorized)
+    return
+}
+
+if req.WalletAddress == "" {
+    w.WriteHeader(http.StatusBadRequest)
+    return
+}
+```
+
+**Code Reference**: `backend/handlers/unwrap.go:114-135`
+
+#### b. Verify Wallet & Redeemer Status
+
+```go
+wallet, err := a.db.GetWalletByUserAndAddress(r.Context(), *userDid, req.WalletAddress)
+if err != nil {
+    if err == pgx.ErrNoRows {
+        w.WriteHeader(http.StatusForbidden)
+        return
+    }
+    // ...
+}
+if !wallet.IsRedeemer {
+    w.WriteHeader(http.StatusForbidden)
+    return
+}
+```
+
+**Code Reference**: `backend/handlers/unwrap.go:137-150`
+
+#### c. Update Last Unwrap Timestamp
+
+```go
+recordedAt := time.Now().UTC()
+if err := a.db.SetWalletLastUnwrapAt(r.Context(), *wallet.Id, recordedAt); err != nil {
+    a.logger.Logf("error setting wallet last_unwrap_at wallet_id=%d user=%s: %s", *wallet.Id, *userDid, err)
+    w.WriteHeader(http.StatusInternalServerError)
+    return
+}
+```
+
+Stores current UTC timestamp as `last_unwrap_at`.
+
+**Code Reference**: `backend/handlers/unwrap.go:156-161`
+
+#### d. Return Success
+
+```json
+{
+  "recorded": true,
+  "recorded_at": "2026-03-04T15:30:00Z"
+}
+```
+HTTP 200 OK
+
+**Code Reference**: `backend/handlers/unwrap.go:163-175`
+
+## Frontend Integration
+
+### Unwrap Flow (Frontend)
+
+Typical unwrap user flow:
+
+1. **Select Wallet** - Choose redeemer-enabled wallet
+2. **Enter Amount** - Specify SFLUV amount to unwrap
+3. **Check Eligibility** - Call `POST /unwrap/check-eligibility`
+4. **Display Status** - Show allowed/denied with reason
+5. **Execute Transaction** - If allowed, unwrap on blockchain
+6. **Record Unwrap** - Call `POST /unwrap/record` after success
+7. **Update UI** - Show confirmation and new balance
+
+### Example Frontend Code
+
+```typescript
+// Check eligibility
+const checkEligibility = async (walletAddress: string, amountWei: string) => {
+  const res = await authFetch("/unwrap/check-eligibility", {
+    method: "POST",
+    body: JSON.stringify({ wallet_address: walletAddress, amount_wei: amountWei })
+  })
+  
+  if (!res.ok) {
+    const data = await res.json()
+    throw new Error(data.reason || "Unwrap not allowed")
+  }
+  
+  return res.json()
+}
+
+// Execute unwrap transaction
+const unwrapTokens = async (walletAddress: string, amountWei: bigint) => {
+  // 1. Check eligibility
+  const eligibility = await checkEligibility(walletAddress, amountWei.toString())
+  
+  if (!eligibility.allowed) {
+    throw new Error(eligibility.reason)
+  }
+  
+  // 2. Execute blockchain transaction
+  const tx = await unwrapContract.unwrap(amountWei)
+  await tx.wait()
+  
+  // 3. Record unwrap
+  const recordRes = await authFetch("/unwrap/record", {
+    method: "POST",
+    body: JSON.stringify({ wallet_address: walletAddress })
+  })
+  
+  if (!recordRes.ok) {
+    console.error("Failed to record unwrap")
+  }
+  
+  return tx.hash
+}
+```
+
+## Database Schema
+
+### Wallet Table
+
+```sql
+CREATE TABLE wallets (
+  id SERIAL PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  address TEXT NOT NULL,
+  is_redeemer BOOLEAN DEFAULT false,
+  last_unwrap_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(user_id, address)
+);
+```
+
+Key fields:
+- `is_redeemer` - Enables unwrap permission
+- `last_unwrap_at` - Timestamp of most recent unwrap (for monthly limit)
+
+## Request/Response Types
+
+### UnwrapEligibilityRequest
+
+```typescript
+interface UnwrapEligibilityRequest {
+  wallet_address: string
+  amount_wei: string  // bigint as string
+}
+```
+
+**Code Reference**: `backend/structs/app.go` (implied)
+
+### UnwrapEligibilityResponse
+
+```typescript
+interface UnwrapEligibilityResponse {
+  allowed: boolean
+  reason: string
+  last_unwrap_at: string | null  // ISO timestamp
+  minimum_followup_amount_wei: string
+}
+```
+
+**Code Reference**: `backend/handlers/unwrap.go:67-72`, `91-96`
+
+### UnwrapRecordRequest
+
+```typescript
+interface UnwrapRecordRequest {
+  wallet_address: string
+}
+```
+
+**Code Reference**: `backend/structs/app.go` (implied)
+
+### UnwrapRecordResponse
+
+```typescript
+interface UnwrapRecordResponse {
+  recorded: boolean
+  recorded_at: string  // ISO timestamp
+}
+```
+
+**Code Reference**: `backend/handlers/unwrap.go:163-166`
+
+## Business Rules
+
+### Redeemer Wallets
+
+Wallets become redeemer-enabled through:
+
+1. **Admin Grant** - Admin sets `is_redeemer: true`
+2. **Merchant Approval** - Approved merchants get redeemer wallets
+3. **Special Programs** - Certain roles auto-granted redeemer status
+
+### Monthly Reset
+
+The monthly limit resets:
+
+- **UTC Month Boundary** - First of month at 00:00:00 UTC
+- **Per Wallet** - Each wallet has independent limit
+- **First Unwrap** - No minimum for first unwrap of month
+- **Subsequent Unwraps** - Require ≥$100 within same month
+
+**Code Reference**: `backend/handlers/unwrap.go:20-24`, `86-89`
+
+### Amount Validation
+
+- **Positive Only** - Amount must be >0
+- **Wei Format** - Sent as string (bigint compatibility)
+- **No Maximum** - First unwrap can be any amount
+- **Follow-up Minimum** - Subsequent unwraps ≥100 SFLUV
+
+**Code Reference**: `backend/handlers/unwrap.go:50-54`, `86-89`
+
+## Error Handling
+
+### Error Responses
+
+**401 Unauthorized** - No valid auth token
+
+**400 Bad Request** - Missing/invalid wallet or amount
+
+**403 Forbidden** - Wallet not owned, not redeemer, or monthly limit
+
+**500 Internal Server Error** - Database or system error
+
+**Code Reference**: `backend/handlers/unwrap.go:29`, `36-37`, `46-47`, `52-53`, `59-64`, `78-80`, `103-106`
+
+### Error Messages
+
+User-facing error reasons:
+
+- `"Wallet is not unwrap-enabled"` - Not a redeemer wallet
+- `"You already unwrapped this month. Additional unwraps this month must be at least $100."` - Monthly limit
+
+**Code Reference**: `backend/handlers/unwrap.go:69`, `88`
+
+## Security Considerations
+
+### Authentication
+
+- **JWT Required** - All endpoints require valid Privy JWT
+- **User Ownership** - Wallet must belong to authenticated user
+- **No Impersonation** - Cannot unwrap others' wallets
+
+### Authorization
+
+- **Redeemer Check** - Only redeemer wallets can unwrap
+- **Admin Control** - Admins control redeemer status
+- **Rate Limiting** - Monthly minimum prevents abuse
+
+### Transaction Safety
+
+- **Check Before Execute** - Always check eligibility first
+- **Record After Success** - Only record after blockchain confirms
+- **Idempotent Recording** - Safe to call record multiple times
+
+## Best Practices
+
+### For Users
+
+1. **Check Eligibility First** - Don't attempt unwrap without checking
+2. **Understand Limits** - Know monthly restriction exists
+3. **Plan Unwraps** - Combine small amounts to meet $100 minimum
+4. **Verify Redeemer Status** - Ensure wallet is unwrap-enabled
+
+### For Developers
+
+1. **Always Check Eligibility** - Before showing unwrap UI
+2. **Display Reasons** - Show user why unwrap denied
+3. **Show Last Unwrap** - Display `last_unwrap_at` for transparency
+4. **Handle Errors Gracefully** - Clear error messages to user
+5. **Record Atomically** - Only record after blockchain success
+
+### For Admins
+
+1. **Control Redeemer Access** - Only grant to trusted/verified users
+2. **Monitor Unwrap Volume** - Track total unwraps for liquidity planning
+3. **Review Monthly** - Check for abuse patterns
+4. **Adjust Minimum** - Update `minimumFollowupUnwrapAmountWei` if needed
+
+## Troubleshooting
+
+### Common Issues
+
+**"Wallet is not unwrap-enabled"**
+- User's wallet missing `is_redeemer: true`
+- Solution: Admin grants redeemer status
+
+**"Additional unwraps this month must be at least $100"**
+- User already unwrapped this calendar month
+- Amount is less than minimum follow-up
+- Solution: Wait until next month or unwrap ≥$100
+
+**403 Forbidden on valid request**
+- Wallet doesn't belong to authenticated user
+- Check wallet address matches user's wallet list
+
+**Recording fails after successful unwrap**
+- Database error or wallet not found
+- Check wallet ID exists and is valid
+- Review server logs for specific error
+
+### Debug Queries
+
+```sql
+-- Check wallet redeemer status
+SELECT id, address, is_redeemer, last_unwrap_at 
+FROM wallets 
+WHERE LOWER(address) = LOWER('0xuser...');
+
+-- Find all redeemer wallets
+SELECT user_id, address, last_unwrap_at 
+FROM wallets 
+WHERE is_redeemer = true;
+
+-- Check recent unwraps
+SELECT address, last_unwrap_at 
+FROM wallets 
+WHERE last_unwrap_at > NOW() - INTERVAL '30 days'
+ORDER BY last_unwrap_at DESC;
+
+-- Find users with multiple redeemer wallets
+SELECT user_id, COUNT(*) as redeemer_count 
+FROM wallets 
+WHERE is_redeemer = true 
+GROUP BY user_id 
+HAVING COUNT(*) > 1;
+```
+
+## Future Enhancements
+
+### Potential Features
+
+1. **Variable Minimums** - Different follow-up amounts by user tier
+2. **Weekly Limits** - Add weekly unwrap caps
+3. **Unwrap History** - Track all unwraps with amounts
+4. **Batch Unwrap** - Unwrap from multiple wallets at once
+5. **Scheduled Unwrap** - Queue future unwraps
+6. **Dynamic Minimum** - Adjust $100 minimum based on token price
+7. **Unwrap Fees** - Optional fee structure for unwrapping
+8. **Instant vs Delayed** - Different limits for instant unwrap
+
+### Integration Opportunities
+
+1. **W9 Integration** - Check W9 compliance before large unwraps
+2. **KYC Verification** - Higher limits for verified users
+3. **Loyalty Rewards** - Better terms for long-term holders
+4. **Tax Reporting** - Generate tax forms for unwrap activity
+5. **Liquidity Management** - Adjust limits based on HONEY reserves

@@ -1,0 +1,300 @@
+---
+title: Issuer API
+description: API endpoints for issuers to grant and revoke credentials
+---
+
+## Overview
+
+Issuers are trusted users who can grant and revoke credentials to improvers. Credentials gate access to workflow steps requiring specific qualifications.
+
+## Authentication
+
+All endpoints use the `withIssuer` middleware which:
+- Requires a valid JWT token with `userDid` in context
+- Checks if user has issuer role via `IsIssuer()`
+- Admin users automatically bypass role checks
+
+## Request Issuer Status
+
+### POST /issuers/request
+
+Request issuer status for authenticated user.
+
+**Request Body**
+```json
+{
+  "organization": "string",    // Required
+  "email": "string"            // Required: must be verified
+}
+```
+
+**Response: 201 Created**
+```json
+{
+  "user_id": "did:privy:...",
+  "organization": "SF Department of Public Works",
+  "email": "issuer@dpw.sf.gov",
+  "is_approved": false,
+  "created_at": "2024-03-15T10:30:00Z"
+}
+```
+
+**Approval Flow**:
+1. Admin approves issuer via `PUT /admin/issuer-requests`
+2. Admin sets credential scopes via `PUT /admin/issuers`
+3. Issuer can now grant/revoke those credential types
+
+**Error Codes**
+- `400`: Missing fields, invalid email, or email not verified
+- `409`: User already has approved issuer status
+
+---
+
+## Issuer Scopes
+
+### GET /issuers/scopes
+
+Get authenticated issuer's credential scopes.
+
+**Response: 200 OK**
+```json
+{
+  "user_id": "did:privy:...",
+  "is_issuer": true,
+  "allowed_credentials": ["dpw_certified", "sfluv_verifier"]
+}
+```
+
+**Note**: Admin users can grant all credential types (returns all credential types in array).
+
+---
+
+## Credential Requests
+
+### GET /issuers/credential-requests
+
+Get credential requests for credentials this issuer can grant.
+
+**Query Parameters**
+- `search`: Filter by user name/email
+- `page`: Page number (0-indexed)
+- `count`: Results per page (default: 20)
+
+**Response: 200 OK**
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "user_id": "did:privy:...",
+      "credential_type": "dpw_certified",
+      "status": "pending",
+      "requester_name": "Jane Smith",
+      "requester_email": "jane@example.com",
+      "requested_at": "2024-03-15T10:30:00Z",
+      "resolved_at": null,
+      "resolved_by": null
+    }
+  ],
+  "total": 1,
+  "page": 0,
+  "count": 20
+}
+```
+
+**Filtering**:
+- Only shows requests for credential types in issuer's scopes
+- Pending requests appear first
+
+**Error Codes**
+- `403`: User does not have issuer role
+
+### POST /issuers/credential-requests/{request_id}/decision
+
+Approve or deny a credential request.
+
+**Request Body**
+```json
+{
+  "status": "approved" | "denied",
+  "decision": "approved" | "denied"  // Alternative field name
+}
+```
+
+**Response: 200 OK**
+Returns updated credential request.
+
+**Side Effects**:
+- If approved: Creates active credential for the user
+- Credential is effective immediately
+- User can now claim workflow steps requiring this credential
+
+**Error Codes**
+- `400`: Invalid decision, required fields missing
+- `403`: Issuer not allowed to grant this credential type
+- `404`: Request not found
+- `409`: Pending credential request already exists for this user/type
+
+---
+
+## Direct Credential Management
+
+### POST /issuers/credentials
+
+Grant a credential directly to a user (bypassing request flow).
+
+**Request Body**
+```json
+{
+  "user_id": "did:privy:...",
+  "credential_type": "dpw_certified"
+}
+```
+
+**Response: 200 OK**
+```json
+{
+  "id": "uuid",
+  "user_id": "did:privy:...",
+  "credential_type": "dpw_certified",
+  "granted_by": "did:privy:...",
+  "granted_at": "2024-03-15T10:30:00Z",
+  "revoked_at": null,
+  "is_active": true
+}
+```
+
+**Error Codes**
+- `400`: Invalid credential type, missing user_id
+- `403`: Issuer not allowed to grant this credential type
+- `404`: User or credential type not found
+
+### DELETE /issuers/credentials
+
+Revoke a credential from a user.
+
+**Request Body**
+```json
+{
+  "user_id": "did:privy:...",
+  "credential_type": "dpw_certified"
+}
+```
+
+**Response: 200 OK**
+
+**Side Effects**:
+- Credential is marked as revoked (soft delete)
+- User can no longer claim workflow steps requiring this credential
+- Does NOT unclaim existing step assignments
+
+**Error Codes**
+- `400`: Invalid credential type, missing user_id
+- `403`: Issuer not allowed to revoke this credential type
+- `404`: Credential not found or already revoked
+
+### GET /issuers/credentials/{user_id}
+
+Get all credentials for a specific user.
+
+**Response: 200 OK**
+```json
+[
+  {
+    "id": "uuid",
+    "user_id": "did:privy:...",
+    "credential_type": "dpw_certified",
+    "granted_by": "did:privy:...",
+    "granted_at": "2024-03-15T10:30:00Z",
+    "revoked_at": null,
+    "revoked_by": null,
+    "is_active": true
+  },
+  {
+    "id": "uuid",
+    "user_id": "did:privy:...",
+    "credential_type": "sfluv_verifier",
+    "granted_by": "did:privy:...",
+    "granted_at": "2024-02-01T08:00:00Z",
+    "revoked_at": "2024-03-10T12:00:00Z",
+    "revoked_by": "did:privy:...",
+    "is_active": false
+  }
+]
+```
+
+---
+
+## User Lookup
+
+### GET /issuers/users/by-address/{address}
+
+Lookup user by Ethereum address (useful for granting credentials based on wallet address).
+
+**Response: 200 OK**
+```json
+{
+  "user_id": "did:privy:...",
+  "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+}
+```
+
+**Error Codes**
+- `404`: User not found with this address
+
+---
+
+## Credential System Overview
+
+### Default Credential Types
+
+1. **dpw_certified**: Department of Public Works certification
+2. **sfluv_verifier**: SFLUV platform verifier credential
+
+Admins can create additional credential types via `POST /admin/credential-types`.
+
+### Credential Workflow
+
+```
+[Improver] → Request Credential → [System] → Notify Issuers
+                                      ↓
+                            [Issuer] → Review Request
+                                      ↓
+                            Approve/Deny Decision
+                                      ↓
+                    [Improver] → Can claim qualified steps
+```
+
+### Scope Enforcement
+
+Issuers can only grant/revoke credentials in their `allowed_credentials` list:
+- Set by admin via `PUT /admin/issuers`
+- Admin users can grant any credential
+- Attempting to grant out-of-scope credential returns `403`
+
+### Credential Effects
+
+Credentials control access to workflow steps:
+- Workflow roles specify `required_credentials: ["dpw_certified"]`
+- Improvers must have ALL required credentials to claim a step
+- Missing credentials returns `403` on claim attempts
+- Credential checks run at claim time (not at workflow viewing time)
+
+---
+
+## Email Notifications
+
+Credential requests trigger email notifications:
+- **On request creation**: Emails all issuers with scopes matching the requested credential
+- Email includes: requester name, email, credential type, request ID, timestamp
+- Issuer email addresses come from their issuer profile
+
+---
+
+## Notes
+
+- Credentials are granted at the user level (not per-workflow)
+- Active credentials persist across workflows
+- Revoking a credential does not unclaim existing step assignments
+- Credential history is preserved (grants and revocations are logged)
+- Admins bypass all credential scope restrictions

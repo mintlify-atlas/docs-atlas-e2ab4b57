@@ -1,0 +1,331 @@
+---
+title: "W9 API"
+description: "W9 submission, approval, compliance checking, and webhook endpoints"
+---
+
+## Submit W9
+
+<ParamField path="POST /w9/submit" type="endpoint">
+  Submit a W9 form for a wallet address.
+</ParamField>
+
+**Authentication:** None (public endpoint)
+
+**Request Body:**
+
+```json
+{
+  "wallet_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+  "email": "user@example.com",
+  "year": 2026
+}
+```
+
+**Response:** `201 Created`
+
+```json
+{
+  "submission": {
+    "id": 1,
+    "wallet_address": "0x742d35cc6634c0532925a3b844bc9e7595f0beb1",
+    "year": 2026,
+    "email": "user@example.com",
+    "submitted_at": "2026-03-04T10:00:00Z",
+    "pending_approval": true,
+    "approved_at": null,
+    "approved_by_user_id": null,
+    "rejected_at": null,
+    "rejected_by_user_id": null,
+    "rejection_reason": null
+  }
+}
+```
+
+**Error Responses:**
+
+- `409 Conflict` - W9 already submitted for this wallet/year (returns `{"error": "w9_pending"}` or `{"error": "w9_approved"}`)
+
+---
+
+## W9 Webhook
+
+<ParamField path="POST /w9/webhook" type="endpoint">
+  Webhook endpoint for external W9 submission systems (e.g., WordPress).
+</ParamField>
+
+**Authentication:** Header `X-W9-Secret` or `X-W9-Key` must match `W9_WEBHOOK_SECRET` environment variable
+
+**Content Types Supported:**
+
+- `application/json`
+- `application/x-www-form-urlencoded`
+
+**Request Body (JSON):**
+
+```json
+{
+  "wallet_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+  "email": "user@example.com",
+  "year": 2026
+}
+```
+
+**Request Body (Form Data):**
+
+```
+wallet=0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1
+&email=user@example.com
+&year=2026
+```
+
+Alternate form field names:
+- `wallet_address` or `wallet`
+- `year` (optional, defaults to current year)
+
+**Response:** `201 Created`
+
+Same response format as `POST /w9/submit`.
+
+**Error Responses:**
+
+- `403 Forbidden` - Invalid or missing webhook secret
+- `409 Conflict` - W9 already submitted
+
+---
+
+## Check W9 Compliance
+
+<ParamField path="POST /w9/check" type="endpoint">
+  Check if a transaction is W9 compliant (admin only).
+</ParamField>
+
+**Authentication:** Required (Admin role or X-Admin-Key header)
+
+**Request Body:**
+
+```json
+{
+  "from_address": "0x1234567890123456789012345678901234567890",
+  "to_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+  "amount": "100000000000000000000"
+}
+```
+
+**Field Descriptions:**
+
+- `from_address` - Must be in the `PAID_ADMIN_ADDRESSES` list to trigger W9 checks
+- `to_address` - Recipient wallet address
+- `amount` - Amount in wei (string)
+
+**Response:** `200 OK` (allowed) or `403 Forbidden` (blocked)
+
+```json
+{
+  "allowed": true,
+  "email": "user@example.com",
+  "current_total": "450000000000000000000",
+  "new_total": "550000000000000000000",
+  "limit": "600000000000000000000",
+  "year": 2026
+}
+```
+
+**When Blocked (403):**
+
+```json
+{
+  "allowed": false,
+  "reason": "w9_required",
+  "w9_url": "https://example.com/w9-form",
+  "email": "user@example.com",
+  "current_total": "650000000000000000000",
+  "new_total": "750000000000000000000",
+  "limit": "600000000000000000000",
+  "year": 2026
+}
+```
+
+**Possible `reason` values:**
+
+- `w9_required` - User needs to submit W9 (over $600 threshold)
+- `w9_pending` - W9 submitted but not yet approved
+
+---
+
+## Record W9 Transaction
+
+<ParamField path="POST /w9/transaction" type="endpoint">
+  Record a completed payment transaction for W9 tracking (admin only).
+</ParamField>
+
+**Authentication:** Required (Admin role or X-Admin-Key header)
+
+**Request Body:**
+
+```json
+{
+  "from_address": "0x1234567890123456789012345678901234567890",
+  "to_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+  "amount": "100000000000000000000",
+  "hash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+  "timestamp": 1709553600
+}
+```
+
+**Response:** `200 OK`
+
+---
+
+## Admin: Get Pending W9 Submissions
+
+<ParamField path="GET /admin/w9/pending" type="endpoint">
+  Retrieve all pending W9 submissions (admin only).
+</ParamField>
+
+**Authentication:** Required (Admin role or X-Admin-Key header)
+
+**Response:** `200 OK`
+
+```json
+{
+  "submissions": [
+    {
+      "id": 1,
+      "wallet_address": "0x742d35cc6634c0532925a3b844bc9e7595f0beb1",
+      "year": 2026,
+      "email": "user@example.com",
+      "submitted_at": "2026-03-04T10:00:00Z",
+      "pending_approval": true,
+      "approved_at": null,
+      "user_contact_email": "contact@example.com"
+    }
+  ]
+}
+```
+
+---
+
+## Admin: Approve W9 Submission
+
+<ParamField path="PUT /admin/w9/approve" type="endpoint">
+  Approve a pending W9 submission (admin only).
+</ParamField>
+
+**Authentication:** Required (Admin role or X-Admin-Key header)
+
+**Request Body:**
+
+```json
+{
+  "id": 1
+}
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "submission": {
+    "id": 1,
+    "wallet_address": "0x742d35cc6634c0532925a3b844bc9e7595f0beb1",
+    "year": 2026,
+    "email": "user@example.com",
+    "submitted_at": "2026-03-04T10:00:00Z",
+    "pending_approval": false,
+    "approved_at": "2026-03-04T11:00:00Z",
+    "approved_by_user_id": "did:key:z6Mk..."
+  }
+}
+```
+
+An approval email is sent to the user.
+
+---
+
+## Admin: Reject W9 Submission
+
+<ParamField path="PUT /admin/w9/reject" type="endpoint">
+  Reject a pending W9 submission (admin only).
+</ParamField>
+
+**Authentication:** Required (Admin role or X-Admin-Key header)
+
+**Request Body:**
+
+```json
+{
+  "id": 1,
+  "reason": "Invalid taxpayer information"
+}
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "submission": {
+    "id": 1,
+    "wallet_address": "0x742d35cc6634c0532925a3b844bc9e7595f0beb1",
+    "year": 2026,
+    "email": "user@example.com",
+    "submitted_at": "2026-03-04T10:00:00Z",
+    "pending_approval": false,
+    "rejected_at": "2026-03-04T11:00:00Z",
+    "rejected_by_user_id": "did:key:z6Mk...",
+    "rejection_reason": "Invalid taxpayer information"
+  }
+}
+```
+
+---
+
+## Schemas
+
+### W9Submission
+
+```typescript
+interface W9Submission {
+  id: number;
+  wallet_address: string;     // Normalized lowercase address
+  year: number;               // Tax year
+  email: string;              // Contact email
+  submitted_at: string;       // ISO 8601 timestamp
+  pending_approval: boolean;  // Approval status
+  approved_at: string | null; // ISO 8601 timestamp
+  approved_by_user_id: string | null; // Admin DID
+  rejected_at: string | null; // ISO 8601 timestamp
+  rejected_by_user_id: string | null; // Admin DID
+  rejection_reason: string | null;
+  user_contact_email?: string | null; // From user profile
+}
+```
+
+### W9CheckResponse
+
+```typescript
+interface W9CheckResponse {
+  allowed: boolean;           // Transaction allowed
+  reason?: string;            // "w9_required" | "w9_pending"
+  w9_url?: string;            // W9 submission form URL
+  email?: string;             // User email
+  current_total?: string;     // Current year earnings (wei)
+  new_total?: string;         // Earnings after transaction (wei)
+  limit?: string;             // W9 threshold (wei, typically $600)
+  year?: number;              // Tax year
+}
+```
+
+### W9WalletEarning
+
+```typescript
+interface W9WalletEarning {
+  wallet_address: string;
+  year: number;
+  amount_received: string;    // Total received (wei)
+  user_id?: string | null;    // Associated user DID
+  w9_required: boolean;       // Over threshold
+  w9_required_at?: string | null; // ISO 8601 timestamp
+  last_tx_hash?: string | null;
+  last_tx_timestamp?: number | null; // Unix timestamp
+}
+```

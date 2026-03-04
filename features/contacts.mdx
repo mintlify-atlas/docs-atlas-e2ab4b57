@@ -1,0 +1,475 @@
+---
+title: "Contact Management"
+description: "Store and manage contact information with favorite marking and quick actions"
+---
+
+## Overview
+
+The Contacts feature allows users to maintain a personal directory of contacts with wallet addresses, email, phone, and notes. Contacts can be marked as favorites for quick access and filtering.
+
+**File Reference**: `frontend/app/contacts/page.tsx:25`
+
+## Key Features
+
+### Contact Directory
+
+Displays all saved contacts with:
+
+- **Contact Cards** - Individual cards for each contact
+- **Favorite Filtering** - Show only favorited contacts
+- **Quick Actions** - Edit, favorite/unfavorite, delete
+- **Empty State** - Helpful message when no contacts exist
+
+**Code Reference**: `frontend/app/contacts/page.tsx:107-127`
+
+### Contact Information
+
+Each contact can store:
+
+- **Name** - Contact's full name
+- **Wallet Address** - Blockchain wallet address (Berachain format)
+- **Email** - Email address
+- **Phone** - Phone number
+- **Notes** - Free-form notes field
+- **Favorite Status** - Boolean flag for quick filtering
+
+**Type Reference**: `frontend/types/contact.ts`
+
+## Adding Contacts
+
+### Add Contact Flow
+
+1. Click "Add Contact" button
+2. `AddContactModal` opens
+3. Enter contact information:
+   - Name (required)
+   - Wallet address (optional)
+   - Email (optional)
+   - Phone (optional)
+   - Notes (optional)
+4. Click "Save"
+5. Contact is created and appears in directory
+
+**Code Reference**: `frontend/app/contacts/page.tsx:53-56`, `89`
+
+### Add Contact Modal
+
+The modal includes:
+
+- **Form Fields** - Input for all contact properties
+- **Validation** - Required field checks (name)
+- **Error Display** - Shows `addContactError` from context
+- **Save Button** - Calls `handleAddContact(contact)`
+- **Cancel Button** - Closes modal without saving
+
+**Component Reference**: `components/contacts/add-contact-modal.tsx`
+
+**Code Reference**: `frontend/app/contacts/page.tsx:89`
+
+## Managing Contacts
+
+### Contact Card
+
+Each contact is displayed in a `ContactCard` component showing:
+
+- **Avatar** - Fallback with initials
+- **Name** - Primary identifier
+- **Contact Info** - Wallet, email, phone (if provided)
+- **Notes Preview** - Truncated notes field
+- **Favorite Icon** - Star/outline star for toggle
+- **Actions Menu** - Edit and delete options
+
+**Code Reference**: `frontend/app/contacts/page.tsx:116-124`
+
+### Editing Contacts
+
+Edit functionality via `ContactCard`:
+
+1. Click edit action in contact card
+2. Update contact fields
+3. Call `updateContact(contact)` from context
+4. Contact updates in directory
+
+**Code Reference**: `frontend/app/contacts/page.tsx:58-61`, `120`
+
+### Favoriting Contacts
+
+**Toggle Favorite**:
+
+```typescript
+const handleToggleIsFavorite = async (c: Contact) => {
+  c.is_favorite = !c.is_favorite
+  await updateContact(c)
+}
+```
+
+Flips the `is_favorite` boolean and saves.
+
+**Code Reference**: `frontend/app/contacts/page.tsx:58-61`
+
+**Favorite Icon** - Star icon fills when favorited, outline when not.
+
+### Deleting Contacts
+
+1. Click delete action in contact card
+2. `DeleteContactModal` opens with confirmation
+3. User confirms deletion
+4. `handleDeleteContact(id)` is called
+5. Contact is removed from directory
+
+**Code Reference**: `frontend/app/contacts/page.tsx:63-70`, `82-88`
+
+## Filtering
+
+### Favorites Filter
+
+**Checkbox Filter**:
+
+```typescript
+<Checkbox
+  id="only-favorites"
+  checked={onlyFavorites}
+  onCheckedChange={() => setOnlyFavorites(!onlyFavorites)}
+/>
+<Label htmlFor="only-favorites">
+  Filter by favorites
+</Label>
+```
+
+**Code Reference**: `frontend/app/contacts/page.tsx:94-106`
+
+### Filter Logic
+
+When `onlyFavorites` is true:
+
+```typescript
+contacts.map((contact, index) => {
+  if(onlyFavorites && !contact.is_favorite) return
+  return <ContactCard key={contact.id} contact={contact} ... />
+})
+```
+
+Contacts without `is_favorite: true` are skipped.
+
+**Code Reference**: `frontend/app/contacts/page.tsx:113-114`
+
+## State Management
+
+### Context Provider
+
+The `ContactsProvider` manages:
+
+```typescript
+const {
+  contacts,              // Array of Contact objects
+  contactsStatus,        // "loading" | "loaded" | "error"
+  addContact,            // (contact: Contact) => Promise<void>
+  updateContact,         // (contact: Contact) => Promise<void>
+  getContacts,           // () => Promise<void>
+  deleteContact          // (id: number) => Promise<void>
+} = useContacts()
+```
+
+**Code Reference**: `frontend/app/contacts/page.tsx:31-38`
+
+### App Context
+
+Uses `AppProvider` for:
+
+```typescript
+const {
+  status,     // Auth status
+  error,      // Global error state
+  setError    // Set error message
+} = useApp()
+```
+
+**Code Reference**: `frontend/app/contacts/page.tsx:40-44`
+
+### Local State
+
+```typescript
+const [addContactModalOpen, setAddContactModalOpen] = useState(false)
+const [deleteContactModalOpen, setDeleteContactModalOpen] = useState(false)
+const [deleteContactModalContact, setDeleteContactModalContact] = useState<Contact>()
+const [onlyFavorites, setOnlyFavorites] = useState(false)
+```
+
+**Code Reference**: `frontend/app/contacts/page.tsx:27-30`
+
+## Authentication
+
+### Auth Guard
+
+```typescript
+useEffect(() => {
+  if(status === "unauthenticated") {
+    router.replace("/")
+  }
+}, [status])
+```
+
+Redirects unauthenticated users to home page.
+
+**Code Reference**: `frontend/app/contacts/page.tsx:45-49`
+
+### Loading State
+
+```typescript
+if (status === "loading") {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#eb6c6c]"></div>
+    </div>
+  )
+}
+```
+
+**Code Reference**: `frontend/app/contacts/page.tsx:72-78`
+
+## UI Components
+
+### Page Layout
+
+- **Header** - "Contacts" title and description
+- **Filter Checkbox** - Favorites filter control
+- **Contact List** - Grid/list of contact cards
+- **Add Button** - Primary action button
+- **Count Display** - Shows filtered contact count
+
+**Code Reference**: `frontend/app/contacts/page.tsx:80-139`
+
+### Modals
+
+- **AddContactModal** - Create new contact
+- **DeleteContactModal** - Confirm deletion
+- **EditContactModal** - Edit existing contact (inline in ContactCard)
+
+**Code Reference**: `frontend/app/contacts/page.tsx:82-89`
+
+### ContactCard Component
+
+Props:
+
+```typescript
+interface ContactCardProps {
+  contact: Contact
+  handleToggleIsFavorite: (c: Contact) => void
+  updateContact: (c: Contact) => void
+  toggleDeleteContactModal: () => void
+  setDeleteContactModalContact: (c: Contact) => void
+}
+```
+
+**Code Reference**: `frontend/app/contacts/page.tsx:116-123`
+
+## Error Handling
+
+### Error Display
+
+Errors are shown in modals:
+
+```typescript
+<AddContactModal
+  open={addContactModalOpen}
+  onOpenChange={toggleAddContactModal}
+  handleAddContact={addContact}
+  addContactError={error}  // Displays error in modal
+/>
+```
+
+**Code Reference**: `frontend/app/contacts/page.tsx:89`
+
+### Error Clearing
+
+```typescript
+const toggleAddContactModal = () => {
+  setError(null)  // Clear error when opening modal
+  setAddContactModalOpen(!addContactModalOpen)
+}
+```
+
+**Code Reference**: `frontend/app/contacts/page.tsx:53-56`
+
+## Contact Count
+
+Displays filtered count at bottom:
+
+```typescript
+<div className="text-sm text-gray-500 dark:text-gray-400">
+  Showing {contacts.length} {!onlyFavorites ? "" : "favorite"} contact
+  {(contacts.filter((contact) => contact.is_favorite === true || !onlyFavorites)).length !== 1 ? "s" : ""}
+</div>
+```
+
+Handles singular/plural and favorite/all labels.
+
+**Code Reference**: `frontend/app/contacts/page.tsx:136-138`
+
+## API Integration
+
+While not directly visible in the page component, the `ContactsProvider` likely handles:
+
+```typescript
+// Get all contacts
+GET /contacts
+
+// Create contact
+POST /contacts
+Body: { name, wallet_address?, email?, phone?, notes?, is_favorite }
+
+// Update contact
+PUT /contacts/:id
+Body: Contact
+
+// Delete contact
+DELETE /contacts/:id
+```
+
+These are abstracted through the context provider methods.
+
+## Contact Type
+
+```typescript
+interface Contact {
+  id: number
+  user_id?: string
+  name: string
+  wallet_address?: string
+  email?: string
+  phone?: string
+  notes?: string
+  is_favorite: boolean
+  created_at?: string
+  updated_at?: string
+}
+```
+
+**Type Reference**: `frontend/types/contact.ts`
+
+## Best Practices
+
+### Data Management
+
+1. **Validate Wallet Addresses** - Ensure proper Berachain address format
+2. **Email Validation** - Check email format before saving
+3. **Duplicate Prevention** - Warn if contact with same wallet/email exists
+4. **Data Persistence** - Ensure changes are saved to backend
+
+### User Experience
+
+1. **Clear Empty State** - Show helpful message when no contacts
+2. **Favorite Quick Access** - Make favoriting intuitive and visible
+3. **Bulk Actions** - Consider adding bulk edit/delete for power users
+4. **Search** - Add search functionality for large contact lists
+5. **Import/Export** - Allow CSV import/export for backup
+
+### Performance
+
+1. **Pagination** - Implement for >100 contacts
+2. **Virtual Scrolling** - For very large lists
+3. **Debounced Search** - If search is added
+4. **Optimistic Updates** - Update UI before backend confirms
+
+## Wallet Integration
+
+### Wallet Address Field
+
+The wallet address field can:
+
+- Store Berachain wallet addresses
+- Link to wallet balance/transaction views
+- Enable quick transfers to contact
+- Verify address ownership (future enhancement)
+
+### Quick Send Integration
+
+Potential integration with wallet sending:
+
+```typescript
+<Button onClick={() => sendToContact(contact.wallet_address)}>
+  Send SFLUV
+</Button>
+```
+
+Would open send dialog pre-filled with contact's wallet address.
+
+## Accessibility
+
+### Keyboard Navigation
+
+- Tab through contact cards
+- Enter to open actions menu
+- Arrow keys to navigate within menu
+- Escape to close modals
+
+### Screen Reader Support
+
+- Label all form fields
+- Announce contact count changes
+- Describe favorite status
+- Provide context for actions
+
+### Focus Management
+
+- Return focus to trigger after modal close
+- Focus first field when modal opens
+- Trap focus within modal
+
+## Troubleshooting
+
+### Common Issues
+
+**Contacts Not Loading**
+- Check `contactsStatus` in context
+- Verify authentication status
+- Check network requests in dev tools
+- Confirm backend endpoint is reachable
+
+**Update Not Persisting**
+- Verify `updateContact()` completes
+- Check for error messages
+- Confirm optimistic update vs backend response
+- Check network tab for failed requests
+
+**Favorite Filter Not Working**
+- Verify `is_favorite` property on contacts
+- Check filter logic in map function
+- Ensure state updates trigger re-render
+
+### Debugging Tips
+
+```typescript
+// Log contacts array
+console.log("Contacts:", contacts)
+
+// Check favorite filter state
+console.log("Only favorites:", onlyFavorites)
+
+// Verify contact update
+console.log("Updated contact:", contact)
+
+// Check context status
+console.log("Contacts status:", contactsStatus)
+```
+
+## Future Enhancements
+
+### Planned Features
+
+1. **Contact Groups** - Organize contacts into categories
+2. **Tags** - Multi-tag support for flexible filtering
+3. **Contact Sharing** - Share contacts with other users
+4. **QR Code** - Generate QR code for contact info
+5. **vCard Export** - Export as standard vCard format
+6. **Contact Verification** - Verify wallet ownership
+7. **Activity History** - Track interactions with contact
+8. **Notes Timeline** - Date-stamped notes entries
+
+### Integration Opportunities
+
+1. **Transaction History** - Link to past transactions with contact
+2. **Workflow Collaboration** - Add contacts as workflow participants
+3. **Messaging** - Direct messaging to contacts
+4. **Calendar Integration** - Schedule meetings with contacts
+5. **Profile Linking** - Link to contact's public profile

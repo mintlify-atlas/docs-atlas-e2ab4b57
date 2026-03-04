@@ -1,0 +1,247 @@
+---
+title: 'API Overview'
+description: 'Complete guide to the SFLUV API including base URL, response formats, and error handling'
+icon: 'globe'
+---
+
+## Introduction
+
+The SFLUV API is a RESTful API that powers the SFLUV local currency platform. Built on Go with chi router, it provides endpoints for multi-role governance, workflow management, merchant operations, and token interactions on Berachain.
+
+## Base URL
+
+All API requests should be made to:
+
+```
+https://api.sfluv.app
+```
+
+For local development:
+
+```
+http://localhost:8080
+```
+
+## Architecture
+
+The SFLUV API operates with three PostgreSQL databases:
+
+1. **app** - Users, roles, workflows, votes, credentials, affiliates
+2. **bot** - Faucet events, redemption codes, W9 submissions  
+3. **ponder** - Indexed blockchain transfers and approval events
+
+## Request Format
+
+All requests must include proper headers:
+
+```bash
+Content-Type: application/json
+Access-Token: <your-privy-jwt-token>
+```
+
+For admin operations, you can optionally use:
+
+```bash
+X-Admin-Key: <admin-key>
+```
+
+### Example Request
+
+```bash
+curl -X GET https://api.sfluv.app/users \
+  -H "Access-Token: eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjEyMyJ9..." \
+  -H "Content-Type: application/json"
+```
+
+## Response Format
+
+All responses are returned in JSON format with appropriate HTTP status codes.
+
+### Success Response
+
+```json
+{
+  "user": {
+    "id": "did:privy:clwxyz123",
+    "contact_name": "Alice Smith",
+    "contact_email": "alice@example.com",
+    "is_admin": false,
+    "is_merchant": true,
+    "is_proposer": true,
+    "is_improver": false,
+    "is_voter": true,
+    "is_issuer": false,
+    "is_supervisor": false,
+    "is_affiliate": false,
+    "paypal_eth": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+    "last_redemption": 1709568000
+  },
+  "proposer": {
+    "user_id": "did:privy:clwxyz123",
+    "status": "approved",
+    "created_at": "2024-03-01T10:00:00Z"
+  },
+  "locations": [],
+  "wallets": []
+}
+```
+
+## HTTP Status Codes
+
+The API uses standard HTTP status codes:
+
+| Status Code | Meaning |
+|-------------|----------|
+| `200` | OK - Request succeeded |
+| `201` | Created - Resource successfully created |
+| `400` | Bad Request - Invalid request data |
+| `401` | Unauthorized - Invalid or missing authentication |
+| `403` | Forbidden - Authenticated but insufficient permissions |
+| `404` | Not Found - Resource doesn't exist |
+| `500` | Internal Server Error - Server-side error |
+
+## Error Handling
+
+When an error occurs, the API returns an appropriate HTTP status code. Most errors return just the status code without a body.
+
+### Common Error Responses
+
+#### 403 Forbidden - No Authentication
+
+Returned when the `Access-Token` header is missing or invalid:
+
+```bash
+HTTP/1.1 403 Forbidden
+```
+
+#### 403 Forbidden - Insufficient Permissions
+
+Returned when the user doesn't have the required role:
+
+```bash curl -X GET https://api.sfluv.app/admin/users \
+  -H "Access-Token: <non-admin-token>"
+
+# Response
+HTTP/1.1 403 Forbidden
+```
+
+#### 404 Not Found
+
+Returned when a resource doesn't exist:
+
+```bash
+curl -X GET https://api.sfluv.app/users \
+  -H "Access-Token: <new-user-token>"
+
+# Response  
+HTTP/1.1 404 Not Found
+```
+
+#### 400 Bad Request
+
+Returned when request data is malformed:
+
+```bash
+HTTP/1.1 400 Bad Request
+```
+
+#### 500 Internal Server Error
+
+Returned when a server-side error occurs:
+
+```bash
+HTTP/1.1 500 Internal Server Error
+```
+
+## Role-Based Access Control
+
+The API implements role-based access control with these roles:
+
+- **Admin** - Full system access, bypasses all role checks
+- **Merchant** - Can create locations and accept payments
+- **Proposer** - Can create workflow proposals and templates
+- **Improver** - Can claim and complete workflow steps
+- **Voter** - Can vote on workflow proposals
+- **Issuer** - Can grant/revoke credentials
+- **Supervisor** - Can oversee workflow operations
+- **Affiliate** - Can create events and manage payouts
+
+### Middleware Guards
+
+Routes are protected with middleware functions:
+
+- `withAuth()` - Requires valid authentication
+- `withAdmin()` - Requires admin role (or valid X-Admin-Key)
+- `withProposer()` - Requires proposer role  
+- `withImprover()` - Requires improver role
+- `withVoter()` - Requires voter role
+- `withIssuer()` - Requires issuer role
+- `withSupervisor()` - Requires supervisor role
+- `withAffiliate()` - Requires affiliate role
+
+**Note:** Admin users automatically bypass all role-specific checks.
+
+## API Categories
+
+The API is organized into these main categories:
+
+### User Management
+- `/users` - User CRUD operations
+- `/admin/users` - Admin user management
+
+### Workflow System
+- `/proposers/*` - Workflow creation and templates
+- `/improvers/*` - Workflow step claiming and completion
+- `/voters/*` - Workflow voting
+- `/supervisors/*` - Workflow oversight
+- `/workflows/*` - Public workflow access
+
+### Credentials
+- `/issuers/*` - Credential issuance and revocation
+- `/credentials/types` - Credential type management
+
+### Locations & Merchants
+- `/locations` - Location management
+- `/admin/locations` - Location approval
+
+### Wallets
+- `/wallets` - Wallet management
+
+### Affiliates
+- `/affiliates/*` - Affiliate operations
+- `/events` - Event management
+
+### Financial Operations
+- `/redeem` - Code redemption
+- `/unwrap` - Token unwrapping
+- `/w9/*` - Tax compliance
+
+### Blockchain Data
+- `/ponder/*` - Transaction subscriptions
+- `/transactions` - Transaction history
+
+## Rate Limiting
+
+Currently, the API does not enforce rate limiting. However, please be mindful of request frequency to ensure system stability.
+
+## CORS Policy
+
+The API allows cross-origin requests from all origins (`*`) with these allowed headers:
+
+- `Accept`
+- `Authorization`  
+- `Content-Type`
+- `X-CSRF-Token`
+- `Access-Token`
+- `X-Admin-Key`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn how to authenticate with Privy JWT tokens
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference/introduction">
+    Explore all available endpoints
+  </Card>
+</CardGroup>

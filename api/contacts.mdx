@@ -1,0 +1,376 @@
+---
+title: 'Contact Management'
+description: 'Contact CRUD operations for managing user address book'
+---
+
+## Create Contact
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sfluv.org/contacts \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Alice Johnson",
+    "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+    "is_favorite": true
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 Created
+{
+  "id": 1,
+  "owner": "did:privy:user123",
+  "name": "Alice Johnson",
+  "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+  "is_favorite": true
+}
+```
+
+```json 400 Bad Request
+{}
+```
+
+```json 401 Unauthorized
+{}
+```
+
+```json 500 Internal Server Error
+{}
+```
+</ResponseExample>
+
+Creates a new contact in the authenticated user's address book.
+
+**POST** `/contacts`
+
+**Authentication:** Required (Bearer token via Privy)
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  Display name for the contact
+</ParamField>
+
+<ParamField body="address" type="string" required>
+  Ethereum address of the contact (0x-prefixed hex string)
+</ParamField>
+
+<ParamField body="is_favorite" type="boolean">
+  Whether this contact is marked as a favorite (defaults to false)
+</ParamField>
+
+### Response
+
+Returns the created contact object including the auto-generated `id` and `owner` fields.
+
+<ResponseField name="id" type="integer" required>
+  Unique contact identifier
+</ResponseField>
+
+<ResponseField name="owner" type="string" required>
+  User's DID who owns this contact
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Display name for the contact
+</ResponseField>
+
+<ResponseField name="address" type="string" required>
+  Ethereum address of the contact
+</ResponseField>
+
+<ResponseField name="is_favorite" type="boolean" required>
+  Whether this contact is marked as a favorite
+</ResponseField>
+
+---
+
+## Get Contacts
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.sfluv.org/contacts \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+[
+  {
+    "id": 1,
+    "owner": "did:privy:user123",
+    "name": "Alice Johnson",
+    "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+    "is_favorite": true
+  },
+  {
+    "id": 2,
+    "owner": "did:privy:user123",
+    "name": "Bob Smith",
+    "address": "0x1234567890abcdef1234567890abcdef12345678",
+    "is_favorite": false
+  },
+  {
+    "id": 3,
+    "owner": "did:privy:user123",
+    "name": "Charlie's Store",
+    "address": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+    "is_favorite": true
+  }
+]
+```
+
+```json 401 Unauthorized
+{}
+```
+
+```json 500 Internal Server Error
+{}
+```
+</ResponseExample>
+
+Retrieves all contacts for the authenticated user.
+
+**GET** `/contacts`
+
+**Authentication:** Required (Bearer token via Privy)
+
+### Response
+
+Returns an array of contact objects. The array is empty if the user has no contacts.
+
+<ResponseField name="id" type="integer" required>
+  Unique contact identifier
+</ResponseField>
+
+<ResponseField name="owner" type="string" required>
+  User's DID who owns this contact
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  Display name for the contact
+</ResponseField>
+
+<ResponseField name="address" type="string" required>
+  Ethereum address of the contact
+</ResponseField>
+
+<ResponseField name="is_favorite" type="boolean" required>
+  Whether this contact is marked as a favorite
+</ResponseField>
+
+---
+
+## Update Contact
+
+<RequestExample>
+```bash cURL
+curl -X PUT https://api.sfluv.org/contacts \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": 1,
+    "name": "Alice Johnson (Updated)",
+    "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+    "is_favorite": false
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 Created
+{}
+```
+
+```json 400 Bad Request
+{}
+```
+
+```json 401 Unauthorized
+{}
+```
+
+```json 500 Internal Server Error
+{}
+```
+</ResponseExample>
+
+Updates an existing contact's information.
+
+**PUT** `/contacts`
+
+**Authentication:** Required (Bearer token via Privy)
+
+### Request Body
+
+<ParamField body="id" type="integer" required>
+  ID of the contact to update
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  Updated display name for the contact
+</ParamField>
+
+<ParamField body="address" type="string" required>
+  Updated Ethereum address of the contact
+</ParamField>
+
+<ParamField body="is_favorite" type="boolean" required>
+  Updated favorite status
+</ParamField>
+
+### Response
+
+Returns `201 Created` on success with no body.
+
+### Authorization
+
+Users can only update their own contacts. The system automatically validates that the contact belongs to the authenticated user.
+
+---
+
+## Delete Contact
+
+<RequestExample>
+```bash cURL
+curl -X DELETE 'https://api.sfluv.org/contacts?id=1' \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{}
+```
+
+```json 400 Bad Request
+{}
+```
+
+```json 401 Unauthorized
+{}
+```
+
+```json 500 Internal Server Error
+{}
+```
+</ResponseExample>
+
+Deletes a contact from the authenticated user's address book.
+
+**DELETE** `/contacts`
+
+**Authentication:** Required (Bearer token via Privy)
+
+### Query Parameters
+
+<ParamField query="id" type="integer" required>
+  ID of the contact to delete
+</ParamField>
+
+### Response
+
+Returns `200 OK` on success with no body.
+
+### Authorization
+
+Users can only delete their own contacts. The system automatically validates that the contact belongs to the authenticated user before deletion.
+
+---
+
+## Use Cases
+
+### Address Book for Transactions
+
+Contacts serve as a user-friendly address book for cryptocurrency transactions within SFLUV:
+
+- Store frequently used wallet addresses with memorable names
+- Mark favorite contacts for quick access
+- Avoid copying/pasting long Ethereum addresses
+
+### Merchant Contacts
+
+Users can save their favorite merchant locations' wallet addresses for easy payments:
+
+```json
+{
+  "name": "Joe's Coffee Shop",
+  "address": "0x...",
+  "is_favorite": true
+}
+```
+
+### Personal Network
+
+Maintain a list of friends, family, or colleagues for peer-to-peer transfers:
+
+```json
+[
+  {
+    "name": "Mom",
+    "address": "0x...",
+    "is_favorite": true
+  },
+  {
+    "name": "John - Coworker",
+    "address": "0x...",
+    "is_favorite": false
+  }
+]
+```
+
+---
+
+## Best Practices
+
+### Address Validation
+
+Always validate Ethereum addresses on the client side before submitting:
+
+- Must start with `0x`
+- Must be 42 characters long (0x + 40 hex characters)
+- Must contain only valid hexadecimal characters (0-9, a-f, A-F)
+
+### Favorite Management
+
+Use the `is_favorite` flag to:
+
+- Highlight important contacts in the UI
+- Sort favorites to the top of contact lists
+- Provide quick access buttons for frequent recipients
+
+### Contact Names
+
+Recommend users include context in contact names:
+
+- ✅ "Alice - Landlord"
+- ✅ "Bob's Hardware Store"
+- ✅ "Mom's Wallet"
+- ❌ "Alice" (too generic if user knows multiple Alices)
+
+---
+
+## Error Responses
+
+<ResponseField name="400 Bad Request">
+  Invalid request format, missing required fields, or invalid contact ID
+</ResponseField>
+
+<ResponseField name="401 Unauthorized">
+  Missing or invalid authentication token
+</ResponseField>
+
+<ResponseField name="500 Internal Server Error">
+  Server-side error occurred during contact operation
+</ResponseField>
+
+## Security Notes
+
+- All contact operations are scoped to the authenticated user
+- Users cannot access or modify other users' contacts
+- The `owner` field is automatically set from the authentication token and cannot be overridden
+- Contact data is stored securely in the PostgreSQL database

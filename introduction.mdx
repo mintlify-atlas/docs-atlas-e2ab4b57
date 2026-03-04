@@ -1,0 +1,136 @@
+---
+title: "Welcome to SFLUV"
+description: "A local currency platform powered by blockchain that connects community members, merchants, and project improvers"
+---
+
+## What is SFLUV?
+
+SFLUV is a local currency platform that uses a wrapped HONEY token on the Berachain blockchain. It's designed to strengthen local economies by connecting merchants, community improvers, project proposers, voters, and credential issuers in a multi-role governance and commerce ecosystem.
+
+Think of SFLUV as a complete community workflow platform where:
+- **Merchants** accept the local currency for goods and services
+- **Proposers** suggest community improvement projects
+- **Improvers** complete projects and earn currency
+- **Voters** approve or reject proposed workflows
+- **Issuers** grant credentials and certifications
+- **Supervisors** oversee workflow completion and quality
+
+## Key Features
+
+### Multi-Role Governance System
+
+SFLUV operates on a role-based system where community members can hold multiple roles:
+
+<CardGroup cols={2}>
+  <Card title="Proposer" icon="lightbulb">
+    Create and submit community project workflows for approval
+  </Card>
+  <Card title="Improver" icon="tools">
+    Claim and complete workflow steps to earn currency rewards
+  </Card>
+  <Card title="Voter" icon="vote-yea">
+    Review and vote on proposed workflows and deletion requests
+  </Card>
+  <Card title="Issuer" icon="certificate">
+    Grant and revoke credentials that qualify improvers for specialized work
+  </Card>
+  <Card title="Merchant" icon="store">
+    Accept SFLUV currency as payment at your business
+  </Card>
+  <Card title="Supervisor" icon="user-check">
+    Oversee workflow completion and ensure quality standards
+  </Card>
+</CardGroup>
+
+### Democratic Workflow Approval
+
+All proposed community projects go through a democratic voting process:
+- **50% quorum requirement** - Half of eligible voters must participate
+- **24-hour countdown** - Once quorum is reached, voting continues for 24 hours
+- **Early finalization** - If more than 50% of all voters agree before countdown ends, workflow is approved immediately
+- **Budget protection** - Workflows are blocked if funding is insufficient
+
+### Credential System
+
+Build trust and expertise through credentials:
+- Workflow roles can require specific credentials
+- Issuers grant credentials to qualified improvers
+- Two built-in credential types: `dpw_certified` and `sfluv_verifier`
+- Admins can create custom credential types
+
+### Recurring Workflows
+
+Set up repeating community projects:
+- **Daily, weekly, or monthly** recurrence options
+- Automatic series management with `series_id`
+- Sequential blocking - new instances wait until previous workflow is paid out
+- Improvers can claim entire series for consistent assignments
+
+### Sequential Workflow Steps
+
+Complex projects are broken into manageable steps:
+- Steps unlock sequentially as previous steps complete
+- Each step can be assigned to different improver roles
+- Detailed work items with photo requirements, written responses, and dropdown options
+- Camera-only capture options for authenticity
+
+## Who Should Use SFLUV?
+
+### Community Organizations
+
+Are you managing community improvement projects? SFLUV provides:
+- Structured project workflows from proposal to completion
+- Built-in payment distribution
+- Democratic approval processes
+- Credential-based quality assurance
+
+### Local Governments
+
+Track and manage community programs with:
+- Transparent voting and approval records
+- Supervisor oversight capabilities
+- Detailed work item documentation
+- W9 compliance for unwrapping to traditional currency
+
+### Social Impact Groups
+
+Empower your community with:
+- Fair compensation for community work
+- Role-based access control
+- Affiliate programs for partner organizations
+- Merchant network for spending earned currency
+
+### Merchant Networks
+
+Accept SFLUV currency to:
+- Support your local community
+- Attract community-engaged customers
+- Track transactions on the blockchain
+- Participate in a local economic ecosystem
+
+## Platform Architecture
+
+<Note>
+SFLUV is built on modern web and blockchain technologies to ensure security, transparency, and scalability.
+</Note>
+
+The platform consists of:
+
+- **Frontend** - Next.js 15 with React 19, built with Tailwind CSS and Radix UI components
+- **Backend** - Go 1.24 API server with PostgreSQL databases and JWT authentication via Privy
+- **Blockchain Indexer** - Ponder service that monitors Berachain ERC20 events in real-time
+- **Three Databases** - Separate databases for application data, faucet/bot operations, and blockchain events
+
+All authentication uses Privy wallet integration, ensuring secure access while maintaining user control over their blockchain identity.
+
+## Getting Started
+
+Ready to join your local SFLUV community?
+
+<Card title="Quick Start Guide" icon="rocket" href="/quickstart">
+  Learn how to create your account, request roles, and start participating
+</Card>
+
+<Card title="Architecture Overview" icon="diagram-project" href="/architecture">
+  Dive deeper into how SFLUV works under the hood
+</Card>

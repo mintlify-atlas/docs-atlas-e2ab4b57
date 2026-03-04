@@ -1,0 +1,333 @@
+---
+title: 'Wallet Management'
+description: 'Wallet CRUD operations for managing user cryptocurrency wallets'
+---
+
+## Get User Wallets
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.sfluv.org/wallets \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+[
+  {
+    "id": 1,
+    "owner": "did:privy:user123",
+    "name": "My Primary Wallet",
+    "is_eoa": true,
+    "is_redeemer": false,
+    "is_minter": false,
+    "eoa_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+    "smart_address": null,
+    "smart_index": null,
+    "last_unwrap_at": null
+  },
+  {
+    "id": 2,
+    "owner": "did:privy:user123",
+    "name": "Smart Account",
+    "is_eoa": false,
+    "is_redeemer": true,
+    "is_minter": false,
+    "eoa_address": "0x1234567890abcdef1234567890abcdef12345678",
+    "smart_address": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+    "smart_index": 0,
+    "last_unwrap_at": "2024-03-15T10:30:00Z"
+  }
+]
+```
+
+```json 403 Forbidden
+{}
+```
+
+```json 500 Internal Server Error
+{}
+```
+</ResponseExample>
+
+Retrieves all wallets associated with the authenticated user.
+
+**GET** `/wallets`
+
+**Authentication:** Required (Bearer token via Privy)
+
+### Response Fields
+
+<ResponseField name="id" type="integer" required>
+  Unique wallet identifier
+</ResponseField>
+
+<ResponseField name="owner" type="string" required>
+  User's DID who owns this wallet
+</ResponseField>
+
+<ResponseField name="name" type="string" required>
+  User-defined wallet name for easy identification
+</ResponseField>
+
+<ResponseField name="is_eoa" type="boolean" required>
+  Whether this is an Externally Owned Account (true) or Smart Account (false)
+</ResponseField>
+
+<ResponseField name="is_redeemer" type="boolean" required>
+  Whether this wallet has redeemer role for merchant QR code redemptions
+</ResponseField>
+
+<ResponseField name="is_minter" type="boolean" required>
+  Whether this wallet has minting privileges
+</ResponseField>
+
+<ResponseField name="eoa_address" type="string" required>
+  Ethereum address of the EOA (or owner EOA for smart accounts)
+</ResponseField>
+
+<ResponseField name="smart_address" type="string | null">
+  Smart contract wallet address (null for EOAs)
+</ResponseField>
+
+<ResponseField name="smart_index" type="integer | null">
+  Index for smart account derivation (null for EOAs)
+</ResponseField>
+
+<ResponseField name="last_unwrap_at" type="string | null">
+  ISO 8601 timestamp of last token unwrap operation
+</ResponseField>
+
+---
+
+## Add Wallet
+
+<RequestExample>
+```bash cURL (EOA)
+curl -X POST https://api.sfluv.org/wallets \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My MetaMask Wallet",
+    "is_eoa": true,
+    "eoa_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb"
+  }'
+```
+
+```bash cURL (Smart Account)
+curl -X POST https://api.sfluv.org/wallets \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "My Smart Account",
+    "is_eoa": false,
+    "eoa_address": "0x1234567890abcdef1234567890abcdef12345678",
+    "smart_address": "0xabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+    "smart_index": 0
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 Created
+"1"
+```
+
+```json 400 Bad Request
+{}
+```
+
+```json 401 Unauthorized
+{}
+```
+
+```json 500 Internal Server Error
+{}
+```
+</ResponseExample>
+
+Adds a new wallet for the authenticated user.
+
+**POST** `/wallets`
+
+**Authentication:** Required (Bearer token via Privy)
+
+### Request Body
+
+<ParamField body="name" type="string" required>
+  User-defined name for the wallet
+</ParamField>
+
+<ParamField body="is_eoa" type="boolean" required>
+  Whether this is an Externally Owned Account (true) or Smart Account (false)
+</ParamField>
+
+<ParamField body="eoa_address" type="string" required>
+  Ethereum address of the EOA (or owner EOA for smart accounts)
+</ParamField>
+
+<ParamField body="smart_address" type="string">
+  Smart contract wallet address (required if `is_eoa` is false)
+</ParamField>
+
+<ParamField body="smart_index" type="integer">
+  Index for smart account derivation (required if `is_eoa` is false)
+</ParamField>
+
+<ParamField body="is_redeemer" type="boolean">
+  Whether this wallet should have redeemer privileges (defaults to false)
+</ParamField>
+
+<ParamField body="is_minter" type="boolean">
+  Whether this wallet should have minting privileges (defaults to false)
+</ParamField>
+
+### Response
+
+Returns the newly created wallet's ID as a string.
+
+### Special Behavior
+
+When adding a smart account (first wallet with `smart_index: 0`) for a user who has an approved merchant location, the wallet is automatically granted redeemer role for QR code redemptions.
+
+---
+
+## Update Wallet
+
+<RequestExample>
+```bash cURL
+curl -X PUT https://api.sfluv.org/wallets \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": 1,
+    "name": "Updated Wallet Name",
+    "is_eoa": true,
+    "eoa_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+    "is_redeemer": true
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 Created
+{}
+```
+
+```json 400 Bad Request
+{}
+```
+
+```json 401 Unauthorized
+{}
+```
+
+```json 500 Internal Server Error
+{}
+```
+</ResponseExample>
+
+Updates an existing wallet's information.
+
+**PUT** `/wallets`
+
+**Authentication:** Required (Bearer token via Privy)
+
+### Request Body
+
+<ParamField body="id" type="integer" required>
+  ID of the wallet to update
+</ParamField>
+
+<ParamField body="name" type="string" required>
+  Updated wallet name
+</ParamField>
+
+<ParamField body="is_eoa" type="boolean" required>
+  Whether this is an Externally Owned Account
+</ParamField>
+
+<ParamField body="eoa_address" type="string" required>
+  Ethereum address of the EOA
+</ParamField>
+
+<ParamField body="smart_address" type="string">
+  Smart contract wallet address (for smart accounts)
+</ParamField>
+
+<ParamField body="smart_index" type="integer">
+  Index for smart account derivation (for smart accounts)
+</ParamField>
+
+<ParamField body="is_redeemer" type="boolean">
+  Whether this wallet has redeemer privileges
+</ParamField>
+
+<ParamField body="is_minter" type="boolean">
+  Whether this wallet has minting privileges
+</ParamField>
+
+<ParamField body="last_unwrap_at" type="string">
+  ISO 8601 timestamp of last unwrap operation
+</ParamField>
+
+### Response
+
+Returns `201 Created` on success with no body.
+
+### Authorization
+
+Users can only update their own wallets. The `owner` field is automatically set to the authenticated user's DID.
+
+---
+
+## Wallet Types
+
+### EOA (Externally Owned Account)
+
+Traditional Ethereum accounts controlled by a private key (e.g., MetaMask, hardware wallets).
+
+- Set `is_eoa: true`
+- Only `eoa_address` is required
+- `smart_address` and `smart_index` should be null
+
+### Smart Account
+
+Contract-based accounts with advanced features like batched transactions and gasless operations.
+
+- Set `is_eoa: false`
+- Requires `eoa_address` (owner), `smart_address` (contract), and `smart_index`
+- Used with account abstraction and bundler services
+
+---
+
+## Wallet Roles
+
+### Redeemer Role
+
+Wallets with `is_redeemer: true` can redeem QR codes for merchant transactions. This role is automatically granted to merchants' first smart account when they have an approved location.
+
+### Minter Role
+
+Wallets with `is_minter: true` have privileges to mint new tokens. This is typically restricted to admin or authorized accounts.
+
+---
+
+## Error Responses
+
+<ResponseField name="400 Bad Request">
+  Invalid request format or missing required fields
+</ResponseField>
+
+<ResponseField name="401 Unauthorized">
+  Missing or invalid authentication token
+</ResponseField>
+
+<ResponseField name="403 Forbidden">
+  User does not have permission to access this resource
+</ResponseField>
+
+<ResponseField name="500 Internal Server Error">
+  Server-side error occurred during wallet operation
+</ResponseField>

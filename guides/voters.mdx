@@ -1,0 +1,414 @@
+---
+title: 'Voter Guide'
+description: 'Learn how to review and vote on workflow proposals and deletion requests as a voter'
+---
+
+# Voter Guide
+
+Voters review and approve or deny workflow proposals and deletion requests. This guide covers the voting process, quorum requirements, and best practices for governance decisions.
+
+## Getting Started
+
+### Voter Access
+
+Voter access is granted by admins. Unlike proposer, improver, and affiliate roles, there's no self-service request form - admins assign voter status directly.
+
+<Steps>
+  <Step title="Contact an Admin">
+    Reach out to SFLUV admins to request voter access.
+  </Step>
+  
+  <Step title="Admin Grants Access">
+    An admin updates your user role to include voter permissions.
+  </Step>
+  
+  <Step title="Access the Voter Panel">
+    Once approved, navigate to `/voter` to see pending votes.
+  </Step>
+</Steps>
+
+## Understanding the Voting Process
+
+### Workflow Voting
+
+When a proposer submits a workflow proposal, it enters **pending** status and begins the voting process:
+
+1. **Submission**: Workflow is pending, awaiting votes
+2. **Voting**: Voters cast approve or deny votes
+3. **Quorum**: When 50% of eligible voters have voted, a 24-hour countdown begins
+4. **Countdown**: Voters have 24 hours to finalize their votes
+5. **Early Finalization**: If >50% of the full voter body agrees (all approve or all deny) before countdown ends, vote finalizes immediately
+6. **Finalization**: After countdown or early finalization:
+   - **Approved**: Workflow moves to `approved` or `blocked` status
+   - **Denied**: Workflow moves to `rejected` status
+
+<Info>
+  Approval is automatically blocked if the unallocated faucet balance is less than one week of workflow bounty requirements. This prevents over-allocation.
+</Info>
+
+### Deletion Voting
+
+Approved, active, or completed workflows can be targeted by deletion proposals:
+
+1. **Proposal**: Voter or proposer submits deletion proposal
+2. **Target Type**:
+   - **Workflow**: Deletes a single workflow instance
+   - **Series**: Deletes entire recurring workflow series (all past and future instances)
+3. **Voting Process**: Same quorum and countdown rules as workflow voting
+4. **Finalization**:
+   - **Approved**: Workflow(s) deleted
+   - **Denied**: Workflow(s) remain active
+
+## Voting on Workflow Proposals
+
+### Reviewing Pending Proposals
+
+<Steps>
+  <Step title="Navigate to Workflow Votes Tab">
+    In the voter panel, go to the "Workflow Votes" tab.
+  </Step>
+  
+  <Step title="View Pending Count">
+    See how many workflows are pending approval in the tab header.
+  </Step>
+  
+  <Step title="Search Proposals">
+    Use the search box to filter by workflow title or keywords.
+  </Step>
+  
+  <Step title="Review Workflow Cards">
+    Each card shows:
+    - Workflow title and description
+    - Status badge (Pending, Approved, Rejected, etc.)
+    - Vote counts (approve/deny)
+    - Quorum status and countdown (if active)
+    - Your vote decision (if already voted)
+  </Step>
+</Steps>
+
+### Opening Workflow Details
+
+<Steps>
+  <Step title="Click a Workflow Card">
+    Open the workflow details modal.
+  </Step>
+  
+  <Step title="Review Full Details">
+    The modal shows:
+    - Complete workflow description
+    - Recurrence pattern and start date
+    - Total bounty and weekly budget impact
+    - Supervisor assignment (if any)
+    - All workflow roles with credential requirements
+    - All steps with role assignments and bounties
+    - Work item requirements for each step
+    - Voting status and history
+  </Step>
+</Steps>
+
+### Casting Your Vote
+
+<Steps>
+  <Step title="Review the Proposal">
+    Consider:
+    - Is the workflow purpose clear and beneficial?
+    - Are bounties appropriate for the work required?
+    - Do role requirements make sense?
+    - Are work items adequate for accountability?
+    - Does this overlap with existing workflows?
+    - Is the budget sustainable?
+  </Step>
+  
+  <Step title="Cast Your Vote">
+    Click either:
+    - **Approve**: Support the workflow
+    - **Deny**: Reject the workflow
+    
+    Your vote is recorded immediately.
+  </Step>
+  
+  <Step title="Monitor Quorum Progress">
+    Watch the vote counts and quorum status.
+    
+    When quorum is reached, the 24-hour countdown begins.
+  </Step>
+</Steps>
+
+<Tip>
+  You can change your vote before the voting period finalizes. Your most recent vote is what counts.
+</Tip>
+
+### Understanding Voting Status
+
+**Vote Counts**:
+- **Approve**: Number of approve votes
+- **Deny**: Number of deny votes
+- **Votes Cast / Total Voters**: How many voters have participated
+
+**Quorum**:
+- **Quorum Threshold**: Minimum votes needed (50% of voters)
+- **Quorum Reached**: Yes/No indicator
+- **Countdown**: Time remaining before finalization (after quorum)
+
+**Decision**:
+- **My Decision**: Your vote (Approve/Deny)
+- **Decision**: Final outcome (Approve/Deny/Admin Approve)
+
+### Admin Force Approve
+
+Admins can bypass the voting process and immediately approve a workflow:
+
+<Steps>
+  <Step title="Admin Opens Pending Workflow">
+    Admin users see a "Force Approve" button on pending workflows.
+  </Step>
+  
+  <Step title="Click Force Approve">
+    The workflow is immediately approved without completing the vote.
+  </Step>
+  
+  <Step title="Decision Marked as 'Admin Approve'">
+    The workflow shows `admin_approve` as the decision, distinguishing it from voter-approved workflows.
+  </Step>
+</Steps>
+
+<Info>
+  Admin force approval is logged and visible to all voters for transparency.
+</Info>
+
+## Voting on Deletion Proposals
+
+### Reviewing Deletion Proposals
+
+<Steps>
+  <Step title="Navigate to Deletion Votes Tab">
+    In the voter panel, go to the "Deletion Votes" tab.
+  </Step>
+  
+  <Step title="View Pending Count">
+    See how many deletion proposals are pending in the tab header.
+  </Step>
+  
+  <Step title="Search Proposals">
+    Use the search box to filter by workflow title or target type.
+  </Step>
+  
+  <Step title="Review Proposal Cards">
+    Each card shows:
+    - Target type (Workflow or Series)
+    - Target workflow title
+    - Status (Pending, Approved, Denied)
+    - Vote counts
+    - Quorum status and countdown
+    - Your vote decision
+  </Step>
+</Steps>
+
+### Understanding Deletion Targets
+
+**Workflow Deletion**:
+- Deletes a single workflow instance
+- Does not affect other instances in the series
+- Use for removing specific problematic workflows
+
+**Series Deletion**:
+- Deletes ALL workflows in the recurring series
+- Includes past, current, and future instances
+- Use for permanently stopping a recurring workflow
+
+<Warning>
+  Series deletion is permanent and affects all workflow instances. Review carefully before approving.
+</Warning>
+
+### Casting Your Deletion Vote
+
+<Steps>
+  <Step title="Review the Proposal">
+    Consider:
+    - Is there a valid reason for deletion?
+    - Should the workflow be modified instead of deleted?
+    - For series: Should the entire series be removed or just one instance?
+    - Are there better alternatives?
+  </Step>
+  
+  <Step title="Cast Your Vote">
+    Click either:
+    - **Approve**: Support the deletion
+    - **Deny**: Keep the workflow(s) active
+  </Step>
+  
+  <Step title="Monitor Voting Progress">
+    Same quorum and countdown rules as workflow voting.
+  </Step>
+</Steps>
+
+## Proposing Deletions from Active Workflows
+
+Voters can propose deletions for active workflows:
+
+<Steps>
+  <Step title="Navigate to Active Workflows Tab">
+    In the voter panel, go to the "Active Workflows" tab.
+  </Step>
+  
+  <Step title="Browse Active Workflows">
+    See all approved, in-progress, and completed workflows.
+  </Step>
+  
+  <Step title="Open Workflow Details">
+    Click a workflow to open the details modal.
+  </Step>
+  
+  <Step title="Propose Deletion">
+    Click "Propose Deletion Vote" button.
+    
+    The system automatically determines:
+    - **Workflow deletion**: If one-time or no other instances in series
+    - **Series deletion**: If recurring with other instances
+  </Step>
+  
+  <Step title="Submit for Voting">
+    The deletion proposal is created and enters the voting queue.
+  </Step>
+</Steps>
+
+<Info>
+  You cannot create multiple pending deletion proposals for the same target. Wait for existing proposals to finalize.
+</Info>
+
+## Best Practices for Voters
+
+<AccordionGroup>
+  <Accordion title="Review Thoroughly">
+    Take time to understand each proposal:
+    - Read full descriptions
+    - Check budget impact
+    - Review work requirements
+    - Consider community benefit
+    - Look for conflicts with existing workflows
+  </Accordion>
+  
+  <Accordion title="Vote Consistently">
+    Develop clear criteria for approval:
+    - Clear community benefit
+    - Appropriate bounties
+    - Adequate accountability measures
+    - Sustainable budget impact
+    - No duplication of existing workflows
+  </Accordion>
+  
+  <Accordion title="Participate Actively">
+    - Vote on all pending proposals
+    - Respond before countdown expires
+    - Change your vote if new information emerges
+    - Help reach quorum quickly
+  </Accordion>
+  
+  <Accordion title="Consider Budget Impact">
+    Track how proposals affect the faucet balance:
+    - Weekly recurring workflows have ongoing costs
+    - One-time workflows are single budget hits
+    - Monitor unallocated balance
+    - Prioritize high-impact workflows when budget is tight
+  </Accordion>
+  
+  <Accordion title="Provide Feedback">
+    If denying a proposal:
+    - Communicate concerns to the proposer
+    - Suggest improvements for resubmission
+    - Share specific issues (bounty, scope, overlap, etc.)
+    - Encourage iteration
+  </Accordion>
+  
+  <Accordion title="Handle Deletions Carefully">
+    Deletion proposals should be rare:
+    - Use for truly problematic workflows
+    - Consider if modification is better than deletion
+    - For series deletions, ensure consensus
+    - Document reasons for approval
+  </Accordion>
+</AccordionGroup>
+
+## Understanding Workflow Status Progression
+
+Workflows move through these statuses:
+
+1. **Pending**: Awaiting voter approval
+2. **Approved**: Approved by voters, awaiting start time
+3. **Blocked**: Approved but blocked by prior series instance
+4. **In Progress**: Active with improvers working
+5. **Completed**: All steps finished, awaiting payout
+6. **Finalized (Paid Out)**: All payouts complete
+7. **Rejected**: Denied by voters
+8. **Expired**: Pending for >14 days without reaching quorum
+9. **Deleted**: Removed via deletion vote
+
+Voters primarily interact with **Pending** workflows and can propose deletions for **Approved**, **Blocked**, **In Progress**, and **Completed** workflows.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Quorum not being reached">
+    Common reasons:
+    - Not enough active voters
+    - Voters not reviewing pending proposals
+    - Unclear proposal discourages participation
+    
+    **Solution**: Encourage voter participation, reach out to other voters, or wait for admin force approval if urgent.
+  </Accordion>
+  
+  <Accordion title="Countdown expired without decision">
+    If countdown completes without majority:
+    - Vote may expire (status: `expired`)
+    - Admin may need to force approve or manually finalize
+    
+    **Solution**: Contact admins to resolve expired votes.
+  </Accordion>
+  
+  <Accordion title="Can't propose deletion">
+    Possible reasons:
+    - A pending deletion proposal already exists for this target
+    - Workflow is in `pending`, `rejected`, or `expired` status (use direct deletion instead)
+    
+    **Solution**: Wait for existing proposal to finalize or ask proposer to delete directly.
+  </Accordion>
+  
+  <Accordion title="Vote not counting">
+    Check:
+    - You're logged in with voter access
+    - Workflow is still in `pending` status
+    - Vote hasn't already finalized
+    
+    **Solution**: Refresh page and try again. Contact admins if issue persists.
+  </Accordion>
+</AccordionGroup>
+
+## Voter Metrics and Accountability
+
+While the current system doesn't track individual voter participation rates, best practices include:
+
+- Vote on all pending proposals
+- Respond before countdown expires
+- Change vote if you reconsider
+- Communicate reasons for deny votes
+- Help maintain quorum participation
+
+## API Endpoints Reference
+
+**Voter routes** (require voter or admin role):
+
+- `GET /voters/workflows` - Fetch workflows for voting
+- `GET /voters/workflow-deletion-proposals` - Fetch deletion proposals
+- `POST /voters/workflow-deletion-proposals` - Propose workflow deletion
+- `POST /workflows/{workflow_id}/votes` - Vote on workflow
+- `POST /workflow-deletion-proposals/{proposal_id}/votes` - Vote on deletion
+- `GET /workflows/active` - List active workflows
+- `GET /workflows/{workflow_id}` - Get workflow details
+
+**Admin routes**:
+- `POST /admin/workflows/{workflow_id}/force-approve` - Force approve workflow
+
+## Related Resources
+
+- [Proposer Guide](/guides/proposers) - How workflows are created
+- [Improver Guide](/guides/improvers) - How workflows are executed

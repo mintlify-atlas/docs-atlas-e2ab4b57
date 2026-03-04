@@ -1,0 +1,404 @@
+---
+title: 'Proposer Guide'
+description: 'Learn how to create workflows, manage templates, and submit proposals as a proposer'
+---
+
+# Proposer Guide
+
+Proposers design and submit workflow proposals that define community projects with sequential steps, role requirements, and bounties. This guide will walk you through all proposer functionality.
+
+## Getting Started
+
+### Requesting Proposer Access
+
+<Steps>
+  <Step title="Navigate to Settings">
+    Go to `/settings` and request proposer status if you're not already approved.
+  </Step>
+  
+  <Step title="Wait for Admin Approval">
+    An admin will review and approve your proposer access request.
+  </Step>
+  
+  <Step title="Access the Proposer Panel">
+    Once approved, navigate to `/proposer` to access your proposer dashboard.
+  </Step>
+</Steps>
+
+## Understanding Workflow Components
+
+A workflow consists of several key components:
+
+- **Title & Description**: High-level summary of the workflow
+- **Recurrence**: One-time, daily, weekly, or monthly
+- **Start Date/Time**: When the workflow becomes active
+- **Roles**: Named roles with credential requirements (e.g., "DPW Certified")
+- **Steps**: Sequential tasks assigned to specific roles
+- **Bounties**: SFLuv token rewards for completing steps
+- **Work Items**: Evidence requirements (photos, written responses, dropdown selections)
+- **Supervisor** (optional): Oversight role with completion payout
+
+## Creating a Workflow Proposal
+
+### Basic Workflow Creation
+
+<Steps>
+  <Step title="Navigate to Create Workflow Tab">
+    On the proposer panel, ensure you're on the "Create Workflow" tab.
+  </Step>
+  
+  <Step title="Enter Workflow Details">
+    Fill in the workflow title and description. These fields are always manual entry (not pre-filled by templates).
+    
+    **Example Title**: "Neighborhood storefront verification"
+    
+    **Example Description**: "Weekly verification that approved merchants have active SFLuv signage displayed."
+  </Step>
+  
+  <Step title="Set Recurrence and Start Time">
+    Choose recurrence pattern:
+    - **One Time**: Single execution
+    - **Daily**: Repeats every day
+    - **Weekly**: Repeats every week
+    - **Monthly**: Repeats every month
+    
+    Select a start date and time using the datetime picker.
+  </Step>
+  
+  <Step title="Define Workflow Roles">
+    Create at least one role:
+    - Click "+ Add Role" to add additional roles
+    - Give each role a descriptive title (e.g., "Field Verifier")
+    - Select required credentials from available types (e.g., `dpw_certified`, `sfluv_verifier`)
+    - Each role must have at least one required credential
+  </Step>
+  
+  <Step title="Add Workflow Steps">
+    Define sequential steps:
+    - Each step needs a title, description, and bounty (in SFLuv)
+    - Assign each step to one of your defined roles
+    - Optionally enable "Step Not Possible" to allow improvers to report if a step can't be completed
+    - Click "+ Add Step" to add more steps
+  </Step>
+  
+  <Step title="Configure Work Items">
+    For each step, define evidence requirements:
+    
+    **Photo Requirements**:
+    - Toggle "Requires Photo"
+    - Choose aspect ratio: vertical, square, or horizontal
+    - Set required photo count or allow any count
+    - Enable "Camera Capture Only" to require live photos (prevents uploads)
+    
+    **Written Response**:
+    - Toggle "Requires Written Response" for text input
+    
+    **Dropdown Selection**:
+    - Toggle "Requires Dropdown"
+    - Add dropdown options with labels
+    - Optionally require written responses for specific dropdown choices
+    - Add notification emails to alert external parties when specific options are selected
+    
+    **Optional Items**:
+    - Mark items as optional if they're not always required
+  </Step>
+  
+  <Step title="Add Supervisor (Optional)">
+    If you want workflow oversight:
+    - Check "Enable Workflow Supervisor"
+    - Select an approved supervisor from the dropdown
+    - Set an optional supervisor completion payout
+  </Step>
+  
+  <Step title="Review Total Bounty">
+    Check the "Draft Total Bounty" badge to see the sum of all step bounties plus supervisor payout.
+  </Step>
+  
+  <Step title="Submit Proposal">
+    Click "Submit Workflow Proposal" to submit for voter approval.
+    
+    The workflow will enter `pending` status and go through the voting process.
+  </Step>
+</Steps>
+
+<Tip>
+  **Best Practice**: Start with small bounties for new workflow types and increase them based on completion rates and feedback from improvers.
+</Tip>
+
+## Using Workflow Templates
+
+Templates let you save workflow structures (roles, steps, work items) for reuse.
+
+### Applying a Template
+
+<Steps>
+  <Step title="Open Template Library">
+    In the "Create Workflow" tab, locate the "Template Library" section.
+  </Step>
+  
+  <Step title="Search and Select">
+    - Use the search box to find templates by title
+    - Click on a template to select it
+    - Templates show "Default" (available to all proposers) or "Personal" (yours only)
+  </Step>
+  
+  <Step title="Apply Template">
+    Click the template name to auto-populate:
+    - Recurrence pattern
+    - Start date/time
+    - All roles with credential requirements
+    - All steps with bounties and work items
+    - Supervisor settings (if defined)
+    
+    <Warning>
+      The workflow **title** and **description** are NOT populated from templates - you must enter these manually for each workflow.
+    </Warning>
+  </Step>
+</Steps>
+
+### Creating Templates
+
+<Steps>
+  <Step title="Design Your Workflow">
+    Set up all roles, steps, and work items as you would for a normal workflow submission.
+  </Step>
+  
+  <Step title="Enter Template Metadata">
+    Fill in:
+    - **Template Title**: Descriptive name (e.g., "Storefront verification baseline")
+    - **Template Description**: Purpose and use case
+  </Step>
+  
+  <Step title="Save Template">
+    Click "Save Template" (saves as personal template)
+    
+    **Admin users** can also click "Save Default Template" to make it available to all proposers.
+  </Step>
+</Steps>
+
+### Saving a Template from an Existing Workflow
+
+<Steps>
+  <Step title="View Workflow Details">
+    In the "Your Workflows" tab, click on any approved, in-progress, completed, or finalized workflow.
+  </Step>
+  
+  <Step title="Save as Template">
+    Click the "Save as Template" button in the workflow details modal.
+  </Step>
+  
+  <Step title="Enter Template Info">
+    Provide a template title and description, then save.
+  </Step>
+</Steps>
+
+<Tip>
+  Convert successful workflows to templates to speed up future proposals with similar structures.
+</Tip>
+
+### Deleting Templates
+
+- Personal templates: Click the trash icon next to the template in the library
+- Default templates: Only admins can delete default templates
+
+## Managing Your Workflows
+
+### Viewing Workflow Status
+
+Navigate to the "Your Workflows" tab to see all your proposals grouped by series (for recurring workflows).
+
+**Status Filters**:
+- **Pending**: Awaiting voter approval
+- **Approved**: Approved and awaiting start time
+- **Blocked**: Part of a recurring series; waiting for previous instance to complete payout
+- **In Progress**: Active with improvers working on steps
+- **Completed**: All steps finished, awaiting payout
+- **Finalized** (Paid Out): All payments complete
+- **Rejected**: Denied by voters
+- **Expired**: Pending for more than 14 days without reaching quorum
+- **Deleted**: Removed via deletion vote
+
+### Viewing Workflow Details
+
+<Steps>
+  <Step title="Click Any Workflow Card">
+    In the "Your Workflows" tab, click on a workflow to open details.
+  </Step>
+  
+  <Step title="Review Workflow Information">
+    The modal shows:
+    - All workflow metadata (title, description, recurrence, dates)
+    - Voting status (approve/deny counts, quorum, countdown)
+    - Supervisor assignment
+    - All roles with credential requirements
+    - All steps with assigned improvers and completion status
+    - Work item submissions (photos, responses)
+  </Step>
+</Steps>
+
+### Deleting Workflows
+
+#### Direct Deletion (Pending/Rejected Only)
+
+For workflows in `pending`, `rejected`, or `expired` status:
+
+<Steps>
+  <Step title="Locate Workflow">
+    Find the workflow in "Your Workflows" tab.
+  </Step>
+  
+  <Step title="Click Delete">
+    Click the delete button on the workflow card or in the details modal.
+  </Step>
+  
+  <Step title="Confirm Deletion">
+    Confirm the action. The workflow is immediately deleted.
+  </Step>
+</Steps>
+
+#### Deletion Proposals (Approved/Active Workflows)
+
+For workflows in `approved`, `blocked`, `in_progress`, or `completed` status:
+
+<Steps>
+  <Step title="Open Workflow Details">
+    Click on the workflow to open the details modal.
+  </Step>
+  
+  <Step title="Propose Deletion">
+    Click "Propose Deletion" button.
+  </Step>
+  
+  <Step title="Select Target Type">
+    Choose deletion target:
+    - **Workflow**: Deletes only this single workflow instance
+    - **Series**: Deletes the entire recurring workflow series (all past and future instances)
+  </Step>
+  
+  <Step title="Submit for Voting">
+    The deletion proposal is submitted to voters for approval.
+    
+    If approved by voter quorum, the workflow(s) will be deleted.
+  </Step>
+</Steps>
+
+<Warning>
+  Series deletion proposals affect ALL workflows in the series, including future recurring instances. Use with caution.
+</Warning>
+
+## Workflow Voting Process
+
+When you submit a workflow, it goes through a voting process:
+
+1. **Submission**: Workflow enters `pending` status
+2. **Voting Period**: Voters review and cast approve/deny votes
+3. **Quorum**: When 50% of eligible voters have voted, a 24-hour countdown begins
+4. **Early Finalization**: If >50% of the full voter body agrees before countdown ends, the vote finalizes early
+5. **Result**:
+   - **Approved**: Workflow moves to `approved` status (or `blocked` if part of a series)
+   - **Denied**: Workflow moves to `rejected` status
+
+<Info>
+  Approval is blocked if the unallocated faucet balance is less than one week's worth of workflow bounty requirements.
+</Info>
+
+## Tips for Successful Proposals
+
+<AccordionGroup>
+  <Accordion title="Write Clear Descriptions">
+    Voters need to understand the workflow's purpose and impact. Include:
+    - **What**: The work being done
+    - **Why**: The community benefit
+    - **Where**: Geographic scope or target locations
+    - **Who**: Stakeholders affected
+  </Accordion>
+  
+  <Accordion title="Set Appropriate Bounties">
+    - Research time required for each step
+    - Account for travel time for field work
+    - Competitive bounties improve completion rates
+    - Start conservative and adjust based on feedback
+  </Accordion>
+  
+  <Accordion title="Require Evidence">
+    Use work items to ensure accountability:
+    - Photos for visual verification
+    - Written responses for context and notes
+    - Dropdowns for structured data collection
+    - Notification emails to alert stakeholders of specific outcomes
+  </Accordion>
+  
+  <Accordion title="Use Recurring Workflows Wisely">
+    Recurring workflows are ideal for:
+    - Regular maintenance tasks
+    - Periodic verifications
+    - Ongoing monitoring
+    
+    Each instance is blocked until the previous one reaches `paid_out` status.
+  </Accordion>
+  
+  <Accordion title="Leverage Templates">
+    Save time and ensure consistency:
+    - Create templates for common workflow patterns
+    - Update templates as you learn what works
+    - Share effective templates with other proposers (admins can make them default)
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="My proposal was rejected">
+    Common reasons:
+    - Insufficient budget (check faucet balance)
+    - Unclear description or purpose
+    - Bounties too high relative to work
+    - Overlaps with existing workflows
+    
+    **Solution**: Revise and resubmit with improvements based on voter feedback.
+  </Accordion>
+  
+  <Accordion title="Workflow is stuck in 'blocked' status">
+    This is expected for recurring workflows. The current instance is blocked until the previous one completes payout.
+    
+    Check the `blocked_by_workflow_id` to see which workflow needs to complete first.
+  </Accordion>
+  
+  <Accordion title="Can't find my template">
+    - Use the search box in the template library
+    - Personal templates are only visible to you
+    - Default templates are visible to all proposers
+    - Deleted templates cannot be recovered
+  </Accordion>
+  
+  <Accordion title="Step bounties don't match my plan">
+    The total bounty is fixed after submission. To change bounties:
+    1. Delete the workflow (if still pending)
+    2. Adjust bounties
+    3. Resubmit
+    
+    For approved workflows, you must propose deletion and create a new workflow.
+  </Accordion>
+</AccordionGroup>
+
+## API Endpoints Reference
+
+**Proposer routes** (require proposer or admin role):
+
+- `POST /proposers/request` - Request proposer status
+- `GET /proposers/workflows` - Fetch your workflows
+- `GET /proposers/workflows/{workflow_id}` - Get workflow details
+- `POST /proposers/workflows` - Create workflow proposal
+- `DELETE /proposers/workflows/{workflow_id}` - Delete workflow (pending/rejected only)
+- `GET /proposers/workflow-templates` - List templates
+- `POST /proposers/workflow-templates` - Create personal template
+- `DELETE /proposers/workflow-templates/{template_id}` - Delete template
+- `POST /proposers/workflow-deletion-proposals` - Propose deletion vote
+- `GET /credentials/types` - List available credential types
+- `GET /supervisors/approved` - List approved supervisors
+
+## Related Resources
+
+- [Voter Guide](/guides/voters) - How workflows are approved
+- [Improver Guide](/guides/improvers) - How workflows are executed
+- [Issuer Guide](/guides/issuers) - How credentials are granted

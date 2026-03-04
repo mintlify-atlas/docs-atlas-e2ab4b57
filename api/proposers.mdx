@@ -1,0 +1,303 @@
+---
+title: Proposer API
+description: API endpoints for proposers to manage workflow templates and workflows
+---
+
+## Overview
+
+Proposers are users approved to create workflows and workflow templates. All proposer endpoints require authentication via JWT Bearer token and the proposer role (or admin override).
+
+## Authentication
+
+All endpoints use the `withProposer` middleware which:
+- Requires a valid JWT token with `userDid` in context
+- Checks if user has proposer role via `IsProposer()`
+- Admin users automatically bypass role checks
+
+## Request Proposer Status
+
+<Warning>
+Before accessing proposer endpoints, users must first request and be approved for proposer status.
+</Warning>
+
+### POST /proposers/request
+
+Request proposer status for authenticated user.
+
+**Request Body**
+```json
+{
+  "organization": "string",  // Required: organization name
+  "email": "string"         // Required: notification email (must be verified)
+}
+```
+
+**Response: 201 Created**
+```json
+{
+  "user_id": "did:privy:...",
+  "organization": "Community Gardens SF",
+  "email": "contact@example.org",
+  "is_approved": false,
+  "created_at": "2024-03-15T10:30:00Z"
+}
+```
+
+**Error Codes**
+- `400`: Missing required fields, invalid email, or email not verified
+- `409`: User already has approved proposer status
+- `403`: Missing authentication
+
+---
+
+## Workflow Templates
+
+Workflow templates allow proposers to save reusable workflow configurations.
+
+### GET /proposers/workflow-templates
+
+Get all workflow templates for the authenticated proposer.
+
+**Response: 200 OK**
+```json
+[
+  {
+    "id": "uuid",
+    "proposer_id": "did:privy:...",
+    "template_title": "Weekly Park Cleanup",
+    "recurrence": "weekly",
+    "steps": [...],
+    "created_at": "2024-03-15T10:30:00Z"
+  }
+]
+```
+
+### POST /proposers/workflow-templates
+
+Create a new workflow template.
+
+**Request Body**
+```json
+{
+  "template_title": "string",     // Required
+  "recurrence": "one_time|daily|weekly|monthly",
+  "start_at": "2024-03-20T09:00:00Z",  // ISO 8601 timestamp
+  "steps": [
+    {
+      "title": "Step 1",
+      "bounty": 5000000000000000000,  // Wei (5 tokens)
+      "role_id": "uuid",
+      "work_items": [...]
+    }
+  ]
+}
+```
+
+**Response: 201 Created**
+Returns the created template object.
+
+**Error Codes**
+- `400`: Invalid recurrence, missing title, invalid step configuration
+
+### DELETE /proposers/workflow-templates/{template_id}
+
+Delete a workflow template owned by the proposer.
+
+**Response: 204 No Content**
+
+---
+
+## Workflows
+
+### POST /proposers/workflows
+
+Create a new workflow from scratch (not from a template).
+
+**Request Body**
+```json
+{
+  "title": "string",              // Required
+  "description": "string",
+  "recurrence": "one_time|daily|weekly|monthly",
+  "start_at": "2024-03-20T09:00:00Z",
+  "supervisor_user_id": "did:privy:...",  // Optional
+  "manager_required": false,
+  "manager_role_id": "uuid",      // Required if manager_required=true
+  "manager_bounty": 0,
+  "steps": [
+    {
+      "title": "Collect supplies",
+      "description": "Gather tools from storage",
+      "bounty": 5000000000000000000,
+      "role_id": "uuid",
+      "work_items": [
+        {
+          "title": "Photo of supplies",
+          "item_order": 1,
+          "optional": false,
+          "requires_photo": true,
+          "requires_dropdown": false,
+          "requires_written_response": false
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Response: 201 Created**
+
+Returns workflow with status:
+- `approved` if auto-approved (no voting required)
+- `pending` if requires voter approval
+
+**Workflow Lifecycle**
+```
+pending → (voting) → approved → in_progress → completed → paid_out
+                  ↓
+                rejected
+```
+
+### GET /proposers/workflows
+
+Get all workflows created by the authenticated proposer.
+
+**Response: 200 OK**
+```json
+[
+  {
+    "id": "uuid",
+    "series_id": "uuid",           // Same for recurring workflows
+    "proposer_id": "did:privy:...",
+    "title": "Park Cleanup Week 1",
+    "status": "approved",
+    "recurrence": "weekly",
+    "start_at": 1710921600,        // Unix timestamp
+    "created_at": 1710835200,
+    "steps": [
+      {
+        "id": "uuid",
+        "title": "Setup",
+        "step_order": 1,
+        "status": "available",
+        "bounty": "5000000000000000000",
+        "assigned_improver_id": null,
+        "work_items": [...]
+      }
+    ],
+    "votes": {
+      "approve_count": 5,
+      "deny_count": 1,
+      "user_vote": null
+    }
+  }
+]
+```
+
+### GET /proposers/workflows/{workflow_id}
+
+Get a specific workflow owned by the proposer.
+
+**Response: 200 OK**
+Returns full workflow details including step submissions (if proposer is also manager/supervisor).
+
+**Error Codes**
+- `404`: Workflow not found or not owned by proposer
+
+### DELETE /proposers/workflows/{workflow_id}
+
+Delete a workflow. Only allowed if:
+- Status is `pending` or `rejected`
+- No steps have been claimed
+
+**Response: 200 OK**
+
+**Error Codes**
+- `400`: Workflow cannot be deleted (already in progress)
+- `404`: Workflow not found
+
+### POST /proposers/workflow-deletion-proposals
+
+Propose deletion of an active workflow (requires voting).
+
+**Request Body**
+```json
+{
+  "workflow_id": "uuid",
+  "reason": "string"           // Required: reason for deletion
+}
+```
+
+**Response: 201 Created**
+Returns deletion proposal object.
+
+---
+
+## Role Request Flow
+
+1. **User requests proposer status**: `POST /proposers/request`
+   - System validates email is verified
+   - Sends notification to admin email (`PROPOSER_ADMIN_EMAIL` env var)
+
+2. **Admin approves**: Via admin panel or `PUT /admin/proposers`
+   - Sets `is_approved = true`
+   - User can now access proposer endpoints
+
+3. **Proposer creates workflows**: `POST /proposers/workflows`
+   - Workflow enters `pending` status
+   - Voters review and approve/deny
+
+4. **Workflow approved**: Workflow moves to `approved` status
+   - Becomes visible to improvers at `start_at` time
+   - Improvers can claim steps
+
+## Data Schemas
+
+### WorkItem Object
+```typescript
+{
+  id: string
+  title: string
+  item_order: number
+  optional: boolean
+  requires_photo: boolean
+  requires_dropdown: boolean
+  requires_written_response: boolean
+  dropdown_options?: [
+    {
+      option_text: string
+      requires_written_response: boolean
+      notify_emails: string[]  // Hidden from most users
+    }
+  ]
+}
+```
+
+### Step Object
+```typescript
+{
+  id: string
+  title: string
+  description?: string
+  step_order: number
+  status: 'locked' | 'available' | 'in_progress' | 'completed' | 'paid_out'
+  bounty: string  // Wei amount
+  role_id?: string
+  assigned_improver_id?: string
+  work_items: WorkItem[]
+  submission?: {
+    improver_id: string
+    submitted_at: number
+    step_not_possible: boolean
+    item_responses: [...]
+  }
+}
+```
+
+## Notes
+
+- Workflow templates with `recurrence` other than `one_time` create a series of workflows
+- Recurring workflows share a `series_id` and are blocked until prior instances are paid out
+- Proposers can see all their workflows regardless of status
+- Step submission data is redacted unless proposer is also supervisor/manager
+- Notify emails in dropdown options are redacted unless proposer is supervisor/manager/proposer

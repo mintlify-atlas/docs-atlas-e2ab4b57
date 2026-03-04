@@ -1,0 +1,408 @@
+---
+title: "Workflow Templates"
+description: "Create, retrieve, and delete reusable workflow templates"
+---
+
+## Overview
+
+Workflow templates are reusable configurations that proposers can use to quickly create workflows. Templates store roles, steps, work items, and other settings that can be applied to new workflow instances.
+
+Templates can be:
+- **Proposer templates** - Created by individual proposers for their own use
+- **Default templates** - Created by admins, available to all proposers
+
+---
+
+## Get Workflow Templates
+
+<RequestExample>
+```bash cURL
+curl https://api.sfluv.com/proposers/workflow-templates \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+[
+  {
+    "id": "template_abc123",
+    "template_title": "Standard Park Cleanup",
+    "template_description": "Weekly park maintenance workflow with photo documentation",
+    "owner_user_id": "did:privy:proposer456",
+    "created_by_user_id": "did:privy:proposer456",
+    "is_default": false,
+    "recurrence": "weekly",
+    "start_at": 36000,
+    "series_id": null,
+    "supervisor_user_id": "did:privy:supervisor123",
+    "supervisor_bounty": 50000000000000000000,
+    "roles": [
+      {
+        "client_id": "role-1",
+        "title": "Park Cleaner",
+        "required_credentials": ["dpw_certified"]
+      }
+    ],
+    "steps": [
+      {
+        "title": "Litter Collection",
+        "description": "Collect all visible litter from assigned area",
+        "bounty": 100000000000000000000,
+        "role_client_id": "role-1",
+        "allow_step_not_possible": false,
+        "work_items": [
+          {
+            "title": "Before Photo",
+            "description": "Take photo before starting cleanup",
+            "optional": false,
+            "requires_photo": true,
+            "camera_capture_only": true,
+            "photo_required_count": 1,
+            "photo_allow_any_count": false,
+            "photo_aspect_ratio": "square",
+            "requires_written_response": false,
+            "requires_dropdown": false,
+            "dropdown_options": []
+          },
+          {
+            "title": "After Photo",
+            "description": "Take photo after completing cleanup",
+            "optional": false,
+            "requires_photo": true,
+            "camera_capture_only": true,
+            "photo_required_count": 1,
+            "photo_allow_any_count": false,
+            "photo_aspect_ratio": "square",
+            "requires_written_response": false,
+            "requires_dropdown": false,
+            "dropdown_options": []
+          }
+        ]
+      }
+    ],
+    "created_at": 1710410400,
+    "updated_at": 1710410400
+  },
+  {
+    "id": "template_def456",
+    "template_title": "Community Garden Maintenance",
+    "template_description": "Default template for garden upkeep tasks",
+    "owner_user_id": null,
+    "created_by_user_id": "did:privy:admin999",
+    "is_default": true,
+    "recurrence": "weekly",
+    "start_at": 32400,
+    "supervisor_user_id": null,
+    "supervisor_bounty": null,
+    "roles": [...],
+    "steps": [...],
+    "created_at": 1710000000,
+    "updated_at": 1710000000
+  }
+]
+```
+</ResponseExample>
+
+**Endpoint:** `GET /proposers/workflow-templates`
+
+**Auth:** Proposer role required
+
+**Description:** Returns all templates available to the authenticated proposer:
+- Templates created by the proposer (`owner_user_id` matches caller)
+- Default templates created by admins (`is_default: true`)
+
+**Response:** Array of `WorkflowTemplate` objects
+
+---
+
+## Create Workflow Template
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sfluv.com/proposers/workflow-templates \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_title": "Standard Park Cleanup",
+    "template_description": "Weekly park maintenance workflow",
+    "recurrence": "weekly",
+    "start_at": "10:00:00",
+    "supervisor_user_id": "did:privy:supervisor123",
+    "supervisor_bounty": 50000000000000000000,
+    "roles": [
+      {
+        "client_id": "role-1",
+        "title": "Park Cleaner",
+        "required_credentials": ["dpw_certified"]
+      }
+    ],
+    "steps": [
+      {
+        "title": "Litter Collection",
+        "description": "Collect all visible litter",
+        "bounty": 100000000000000000000,
+        "role_client_id": "role-1",
+        "allow_step_not_possible": false,
+        "work_items": [
+          {
+            "title": "Before Photo",
+            "description": "Photo before cleanup",
+            "optional": false,
+            "requires_photo": true,
+            "camera_capture_only": true,
+            "photo_required_count": 1,
+            "photo_allow_any_count": false,
+            "photo_aspect_ratio": "square",
+            "requires_written_response": false,
+            "requires_dropdown": false,
+            "dropdown_options": []
+          }
+        ]
+      }
+    ]
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 Created
+{
+  "id": "template_abc123",
+  "template_title": "Standard Park Cleanup",
+  "template_description": "Weekly park maintenance workflow",
+  "owner_user_id": "did:privy:proposer456",
+  "created_by_user_id": "did:privy:proposer456",
+  "is_default": false,
+  "recurrence": "weekly",
+  "start_at": 36000,
+  "supervisor_user_id": "did:privy:supervisor123",
+  "supervisor_bounty": 50000000000000000000,
+  "roles": [...],
+  "steps": [...],
+  "created_at": 1710410400,
+  "updated_at": 1710410400
+}
+```
+</ResponseExample>
+
+**Endpoint:** `POST /proposers/workflow-templates`
+
+**Auth:** Proposer role required
+
+**Request Body:**
+
+<ParamField body="template_title" type="string" required>
+  Template name (must not be empty)
+</ParamField>
+
+<ParamField body="template_description" type="string" required>
+  Description of template purpose and contents
+</ParamField>
+
+<ParamField body="recurrence" type="string" required>
+  Frequency: `one_time`, `daily`, `weekly`, or `monthly`
+</ParamField>
+
+<ParamField body="start_at" type="string" required>
+  Start time in format:
+  - ISO 8601 datetime: `2024-03-15T10:00:00Z`
+  - Time only (for relative scheduling): `10:00:00` or `10:00`
+  - Unix timestamp: `1710496800`
+</ParamField>
+
+<ParamField body="series_id" type="string">
+  Optional series ID for recurring workflow linkage
+</ParamField>
+
+<ParamField body="supervisor_user_id" type="string">
+  Supervisor DID (if supervisor required)
+</ParamField>
+
+<ParamField body="supervisor_bounty" type="number">
+  Supervisor payment in wei (if supervisor required)
+</ParamField>
+
+<ParamField body="roles" type="array" required>
+  Array of workflow role definitions (same as workflow creation)
+</ParamField>
+
+<ParamField body="steps" type="array" required>
+  Array of workflow step definitions (same as workflow creation)
+</ParamField>
+
+**Response Codes:**
+- `201` - Template created successfully
+- `400` - Invalid request (empty title, invalid recurrence, unknown credentials, etc.)
+- `403` - User not approved as proposer
+- `500` - Server error
+
+---
+
+## Create Default Template (Admin)
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sfluv.com/admin/workflow-templates/default \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-Admin-Key: YOUR_ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "template_title": "Community Garden Maintenance",
+    "template_description": "Standard garden upkeep tasks",
+    "recurrence": "weekly",
+    "start_at": "09:00:00",
+    "roles": [...],
+    "steps": [...]
+  }'
+```
+</RequestExample>
+
+**Endpoint:** `POST /admin/workflow-templates/default`
+
+**Auth:** Admin role required
+
+**Request Body:** Same as regular template creation
+
+**Description:** Creates a default template accessible to all proposers. The template has `is_default: true` and `owner_user_id: null`.
+
+**Response Codes:**
+- `201` - Default template created
+- `400` - Invalid request
+- `403` - Not authenticated as admin
+- `500` - Server error
+
+---
+
+## Delete Workflow Template
+
+<RequestExample>
+```bash cURL
+curl -X DELETE https://api.sfluv.com/proposers/workflow-templates/template_abc123 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{}
+```
+</ResponseExample>
+
+**Endpoint:** `DELETE /proposers/workflow-templates/{template_id}`
+
+**Auth:** Proposer role required (must be template owner)
+
+**Path Parameters:**
+
+<ParamField path="template_id" type="string" required>
+  Template UUID
+</ParamField>
+
+**Description:** Deletes a template owned by the authenticated proposer. Default templates cannot be deleted via this endpoint (admin-only operation).
+
+**Response Codes:**
+- `200` - Template deleted successfully
+- `404` - Template not found or not owned by proposer
+- `403` - Not authenticated or not template owner
+- `500` - Server error
+
+---
+
+## Schema Reference
+
+### WorkflowTemplate Object
+
+```typescript
+interface WorkflowTemplate {
+  id: string
+  template_title: string
+  template_description: string
+  owner_user_id?: string | null  // null for default templates
+  created_by_user_id: string
+  is_default: boolean  // true if created by admin
+  recurrence: "one_time" | "daily" | "weekly" | "monthly"
+  start_at: number  // Unix timestamp or seconds since midnight
+  series_id?: string | null
+  supervisor_user_id?: string | null
+  supervisor_bounty?: number | null  // wei
+  roles: WorkflowRoleCreateInput[]
+  steps: WorkflowStepCreateInput[]
+  created_at: number
+  updated_at: number
+}
+```
+
+### WorkflowRoleCreateInput Object
+
+```typescript
+interface WorkflowRoleCreateInput {
+  client_id: string  // temporary ID for referencing in steps
+  title: string
+  required_credentials: string[]  // credential type values
+}
+```
+
+### WorkflowStepCreateInput Object
+
+```typescript
+interface WorkflowStepCreateInput {
+  title: string
+  description: string
+  bounty: number  // wei (uint64)
+  role_client_id: string  // references role by client_id
+  allow_step_not_possible: boolean
+  work_items: WorkflowWorkItemCreateInput[]
+}
+```
+
+### WorkflowWorkItemCreateInput Object
+
+```typescript
+interface WorkflowWorkItemCreateInput {
+  title: string
+  description: string
+  optional: boolean
+  requires_photo: boolean
+  camera_capture_only: boolean  // restrict to camera photos only (no gallery)
+  photo_required_count: number  // minimum photos required
+  photo_allow_any_count: boolean  // allow unlimited photos
+  photo_aspect_ratio: "vertical" | "square" | "horizontal"
+  requires_written_response: boolean
+  requires_dropdown: boolean
+  dropdown_options: WorkflowDropdownOptionCreateInput[]
+}
+```
+
+### WorkflowDropdownOptionCreateInput Object
+
+```typescript
+interface WorkflowDropdownOptionCreateInput {
+  label: string  // display text
+  requires_written_response: boolean  // require written response if selected
+  notify_emails: string[]  // emails to notify when this option is selected
+}
+```
+
+---
+
+## Using Templates to Create Workflows
+
+Templates provide the structure for workflows, but you must still specify:
+- `title` (actual workflow title, not template title)
+- `description` (actual workflow description)
+- `start_at` (specific datetime for this workflow instance)
+
+The frontend typically:
+1. Fetches available templates via `GET /proposers/workflow-templates`
+2. User selects a template
+3. Frontend pre-fills workflow creation form with template data
+4. User customizes title, description, start date, and any other fields
+5. Frontend submits to `POST /proposers/workflows` with template data + customizations
+
+---
+
+## Related Endpoints
+
+- [Create Workflow](/api/workflows) - Use template data to create a workflow
+- [Credentials API](/api/credentials) - List available credential requirements

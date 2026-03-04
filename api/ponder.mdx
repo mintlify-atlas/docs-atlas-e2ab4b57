@@ -1,0 +1,292 @@
+---
+title: "Ponder API"
+description: "Blockchain event webhooks and transaction history"
+---
+
+## Ponder Callback (Webhook)
+
+<ParamField path="POST /ponder/callback" type="endpoint">
+  Webhook endpoint called by Ponder indexer when blockchain events occur.
+</ParamField>
+
+**Authentication:** Header `X-Admin-Key` must match `PONDER_KEY` environment variable
+
+**Request Body:**
+
+```json
+{
+  "to": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+  "from": "0x1234567890123456789012345678901234567890",
+  "hash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+  "amount": "100000000000000000000"
+}
+```
+
+**Field Descriptions:**
+
+- `to` - Recipient wallet address
+- `from` - Sender wallet address
+- `hash` - Transaction hash
+- `amount` - Amount transferred in wei (string)
+
+**Response:** `200 OK`
+
+**Behavior:**
+
+1. Looks up all merchant subscriptions for the `to` address
+2. Formats the amount using `TOKEN_DECIMALS` environment variable
+3. Sends email notifications to all subscribed email addresses
+4. Email includes transaction details: amount, from/to addresses, and transaction hash
+
+**Email Template Variables:**
+
+- Transaction amount (formatted with 2 decimals)
+- Sender address
+- Recipient address (or wallet name if configured)
+- Transaction hash (first 6 characters in subject)
+
+**Error Responses:**
+
+- `401 Unauthorized` - Invalid or missing `X-Admin-Key`
+
+---
+
+## Ponder Ping (Health Check)
+
+<ParamField path="GET /ponder/callback" type="endpoint">
+  Health check endpoint for Ponder service.
+</ParamField>
+
+**Authentication:** Header `X-Admin-Key` must match `PONDER_KEY` environment variable
+
+**Response:** `200 OK`
+
+---
+
+## Add Merchant Subscription
+
+<ParamField path="POST /ponder" type="endpoint">
+  Subscribe to transaction notifications for a wallet address.
+</ParamField>
+
+**Authentication:** Required (Bearer token, Merchant role)
+
+**Request Body:**
+
+```json
+{
+  "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
+  "email": "merchant@example.com"
+}
+```
+
+**Field Descriptions:**
+
+- `address` - Wallet address to monitor (must be owned by authenticated user)
+- `email` - Email address for notifications (must be verified)
+
+**Response:** `201 Created`
+
+**Error Responses:**
+
+- `400 Bad Request` - Invalid request or email not provided
+- `403 Forbidden` - Email not verified, wallet not owned, or user not a merchant
+- `401 Unauthorized` - Not authenticated
+
+---
+
+## Get Merchant Subscriptions
+
+<ParamField path="GET /ponder" type="endpoint">
+  Retrieve all merchant subscriptions for the authenticated user.
+</ParamField>
+
+**Authentication:** Required (Bearer token)
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "id": 1,
+    "address": "0x742d35cc6634c0532925a3b844bc9e7595f0beb1",
+    "type": "merchant",
+    "owner": "did:key:z6Mk...",
+    "data": "bWVyY2hhbnRAZXhhbXBsZS5jb20="
+  }
+]
+```
+
+**Field Descriptions:**
+
+- `id` - Subscription ID (used for deletion)
+- `address` - Monitored wallet address
+- `type` - Subscription type (always "merchant" currently)
+- `owner` - User DID
+- `data` - Base64-encoded email address
+
+---
+
+## Delete Merchant Subscription
+
+<ParamField path="DELETE /ponder" type="endpoint">
+  Unsubscribe from transaction notifications.
+</ParamField>
+
+**Authentication:** Required (Bearer token, subscription owner)
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `id` | integer | Yes | Subscription ID to delete |
+
+**Example:** `DELETE /ponder?id=1`
+
+**Response:** `200 OK`
+
+**Error Responses:**
+
+- `400 Bad Request` - Missing or invalid subscription ID
+- `403 Forbidden` - User does not own this subscription
+- `401 Unauthorized` - Not authenticated
+
+---
+
+## Get Transaction History
+
+<ParamField path="GET /transactions" type="endpoint">
+  Retrieve paginated transaction history for a wallet address.
+</ParamField>
+
+**Authentication:** None (public endpoint)
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Required | Description |
+|-----------|------|---------|----------|-------------|
+| `address` | string | - | Yes | Wallet address |
+| `page` | integer | 0 | No | Page number |
+| `count` | integer | 10 | No | Items per page |
+| `desc` | boolean | false | No | Sort descending (newest first) |
+
+**Example:** `GET /transactions?address=0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1&page=0&count=20&desc=true`
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "hash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
+    "from": "0x1234567890123456789012345678901234567890",
+    "to": "0x742d35cc6634c0532925a3b844bc9e7595f0beb1",
+    "amount": "100000000000000000000",
+    "timestamp": 1709553600,
+    "block_number": 1234567
+  }
+]
+```
+
+**Error Responses:**
+
+- `400 Bad Request` - Missing or invalid address
+
+---
+
+## Get Balance at Timestamp
+
+<ParamField path="GET /transactions/balance" type="endpoint">
+  Calculate wallet balance at a specific point in time.
+</ParamField>
+
+**Authentication:** Required (Bearer token)
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `address` | string | Yes | Wallet address |
+| `timestamp` | integer | Yes | Unix timestamp |
+
+**Example:** `GET /transactions/balance?address=0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1&timestamp=1709553600`
+
+**Response:** `200 OK`
+
+```json
+{
+  "address": "0x742d35cc6634c0532925a3b844bc9e7595f0beb1",
+  "timestamp": 1709553600,
+  "balance": "1250000000000000000000"
+}
+```
+
+**Field Descriptions:**
+
+- `address` - Wallet address
+- `timestamp` - Requested Unix timestamp
+- `balance` - Balance in wei (string) at that timestamp
+
+**Error Responses:**
+
+- `400 Bad Request` - Missing or invalid parameters
+- `401 Unauthorized` - Not authenticated
+
+---
+
+## Schemas
+
+### PonderHookData
+
+```typescript
+interface PonderHookData {
+  to: string;      // Recipient address
+  from: string;    // Sender address
+  hash: string;    // Transaction hash
+  amount: string;  // Amount in wei
+}
+```
+
+### PonderSubscription
+
+```typescript
+interface PonderSubscription {
+  id: number;               // Subscription ID
+  address: string;          // Monitored wallet address
+  type: "merchant";         // Subscription type
+  owner: string;            // User DID
+  data: string;             // Base64-encoded email
+}
+```
+
+### Transaction
+
+```typescript
+interface Transaction {
+  hash: string;          // Transaction hash
+  from: string;          // Sender address
+  to: string;            // Recipient address
+  amount: string;        // Amount in wei
+  timestamp: number;     // Unix timestamp
+  block_number: number;  // Block number
+}
+```
+
+---
+
+## Integration Notes
+
+**Ponder Service:**
+
+Ponder is a separate blockchain indexer service that:
+1. Listens to ERC20 Transfer events on Berachain
+2. Stores transaction data in the `ponder` PostgreSQL database
+3. Triggers webhooks to `POST /ponder/callback` for subscribed addresses
+
+**Environment Variables:**
+
+- `PONDER_SERVER_BASE_URL` - Base URL of the Ponder service
+- `PONDER_KEY` - Shared secret for authentication
+- `PONDER_CALLBACK_URL` - Public URL of this API's callback endpoint
+- `TOKEN_DECIMALS` - Token decimals for formatting (e.g., "1000000000000000000" for 18 decimals)
+
+**Do not modify** the Ponder service itself - it is a stable blockchain indexer.

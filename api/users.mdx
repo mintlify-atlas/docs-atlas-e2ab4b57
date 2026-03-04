@@ -1,0 +1,604 @@
+---
+title: 'User Management'
+description: 'User CRUD operations and email verification endpoints'
+---
+
+## Create User
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sfluv.org/users \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 Created
+{}
+```
+
+```json 403 Forbidden
+{}
+```
+
+```json 500 Internal Server Error
+{}
+```
+</ResponseExample>
+
+Creates a new user account using the authenticated user's DID from the JWT token.
+
+**POST** `/users`
+
+**Authentication:** Required (Bearer token via Privy)
+
+**Request Body:** None (user ID is extracted from JWT)
+
+### Response
+
+Returns `201 Created` on success with no body.
+
+---
+
+## Get Authenticated User
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.sfluv.org/users \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "user": {
+    "id": "did:privy:user123",
+    "exists": true,
+    "is_admin": false,
+    "is_merchant": true,
+    "is_organizer": false,
+    "is_improver": false,
+    "is_proposer": false,
+    "is_voter": true,
+    "is_issuer": false,
+    "is_supervisor": false,
+    "is_affiliate": false,
+    "contact_email": "user@example.com",
+    "contact_phone": "+1234567890",
+    "contact_name": "John Doe",
+    "paypal_eth": "0x...",
+    "last_redemption": 1678901234
+  },
+  "wallets": [
+    {
+      "id": 1,
+      "owner": "did:privy:user123",
+      "name": "My Wallet",
+      "is_eoa": true,
+      "is_redeemer": false,
+      "is_minter": false,
+      "eoa_address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb",
+      "smart_address": null,
+      "smart_index": null,
+      "last_unwrap_at": null
+    }
+  ],
+  "locations": [],
+  "contacts": [],
+  "affiliate": null,
+  "proposer": null,
+  "improver": null,
+  "issuer": null,
+  "supervisor": null
+}
+```
+
+```json 403 Forbidden
+{}
+```
+
+```json 404 Not Found
+{}
+```
+</ResponseExample>
+
+Retrieves the authenticated user's complete profile including associated wallets, locations, contacts, and role information.
+
+**GET** `/users`
+
+**Authentication:** Required (Bearer token via Privy)
+
+### Response Fields
+
+<ResponseField name="user" type="object" required>
+  User profile information
+  
+  <Expandable title="User object properties">
+    <ResponseField name="id" type="string" required>
+      User's decentralized identifier (DID)
+    </ResponseField>
+    
+    <ResponseField name="exists" type="boolean" required>
+      Whether the user record exists in the database
+    </ResponseField>
+    
+    <ResponseField name="is_admin" type="boolean" required>
+      Admin role flag
+    </ResponseField>
+    
+    <ResponseField name="is_merchant" type="boolean" required>
+      Merchant role flag
+    </ResponseField>
+    
+    <ResponseField name="is_organizer" type="boolean" required>
+      Organizer role flag
+    </ResponseField>
+    
+    <ResponseField name="is_improver" type="boolean" required>
+      Improver role flag (community project worker)
+    </ResponseField>
+    
+    <ResponseField name="is_proposer" type="boolean" required>
+      Proposer role flag (can create workflow proposals)
+    </ResponseField>
+    
+    <ResponseField name="is_voter" type="boolean" required>
+      Voter role flag (can vote on workflows)
+    </ResponseField>
+    
+    <ResponseField name="is_issuer" type="boolean" required>
+      Issuer role flag (can issue credentials)
+    </ResponseField>
+    
+    <ResponseField name="is_supervisor" type="boolean" required>
+      Supervisor role flag
+    </ResponseField>
+    
+    <ResponseField name="is_affiliate" type="boolean" required>
+      Affiliate role flag
+    </ResponseField>
+    
+    <ResponseField name="contact_email" type="string | null">
+      User's contact email address
+    </ResponseField>
+    
+    <ResponseField name="contact_phone" type="string | null">
+      User's contact phone number
+    </ResponseField>
+    
+    <ResponseField name="contact_name" type="string | null">
+      User's display name
+    </ResponseField>
+    
+    <ResponseField name="paypal_eth" type="string">
+      User's PayPal ETH address for payouts
+    </ResponseField>
+    
+    <ResponseField name="last_redemption" type="integer">
+      Timestamp of last code redemption
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="wallets" type="array" required>
+  Array of wallet objects associated with the user
+</ResponseField>
+
+<ResponseField name="locations" type="array" required>
+  Array of merchant location objects
+</ResponseField>
+
+<ResponseField name="contacts" type="array" required>
+  Array of contact objects
+</ResponseField>
+
+<ResponseField name="affiliate" type="object | null">
+  Affiliate information if user has affiliate role
+</ResponseField>
+
+<ResponseField name="proposer" type="object | null">
+  Proposer information if user has proposer role
+</ResponseField>
+
+<ResponseField name="improver" type="object | null">
+  Improver information if user has improver role
+</ResponseField>
+
+<ResponseField name="issuer" type="object | null">
+  Issuer information if user has issuer role
+</ResponseField>
+
+<ResponseField name="supervisor" type="object | null">
+  Supervisor information if user has supervisor role
+</ResponseField>
+
+---
+
+## Update User Information
+
+<RequestExample>
+```bash cURL
+curl -X PUT https://api.sfluv.org/users \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "contact_email": "newemail@example.com",
+    "contact_phone": "+1234567890",
+    "contact_name": "Jane Smith"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 Created
+{}
+```
+
+```json 400 Bad Request
+{}
+```
+
+```json 403 Forbidden
+{}
+```
+</ResponseExample>
+
+Updates the authenticated user's profile information.
+
+**PUT** `/users`
+
+**Authentication:** Required (Bearer token via Privy)
+
+### Request Body
+
+<ParamField body="contact_email" type="string">
+  User's email address
+</ParamField>
+
+<ParamField body="contact_phone" type="string">
+  User's phone number
+</ParamField>
+
+<ParamField body="contact_name" type="string">
+  User's display name
+</ParamField>
+
+### Response
+
+Returns `201 Created` on success with no body.
+
+---
+
+## Update PayPal ETH Address
+
+<RequestExample>
+```bash cURL
+curl -X PUT https://api.sfluv.org/paypaleth \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: text/plain" \
+  -d '0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 Created
+{}
+```
+
+```json 403 Forbidden
+{}
+```
+
+```json 500 Internal Server Error
+{}
+```
+</ResponseExample>
+
+Updates the user's PayPal ETH address for receiving payouts.
+
+**PUT** `/paypaleth`
+
+**Authentication:** Required (Bearer token via Privy)
+
+### Request Body
+
+Raw Ethereum address string (Content-Type: text/plain)
+
+---
+
+## Get Verified Emails
+
+<RequestExample>
+```bash cURL
+curl -X GET https://api.sfluv.org/users/verified-emails \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+[
+  {
+    "id": "email_abc123",
+    "user_id": "did:privy:user123",
+    "email": "user@example.com",
+    "status": "verified",
+    "verified_at": "2024-03-15T10:30:00Z",
+    "verification_sent_at": "2024-03-15T10:00:00Z",
+    "verification_token_expires_at": null,
+    "created_at": "2024-03-15T10:00:00Z",
+    "updated_at": "2024-03-15T10:30:00Z"
+  },
+  {
+    "id": "email_def456",
+    "user_id": "did:privy:user123",
+    "email": "another@example.com",
+    "status": "pending",
+    "verified_at": null,
+    "verification_sent_at": "2024-03-16T14:20:00Z",
+    "verification_token_expires_at": "2024-03-16T14:50:00Z",
+    "created_at": "2024-03-16T14:20:00Z",
+    "updated_at": "2024-03-16T14:20:00Z"
+  }
+]
+```
+
+```json 403 Forbidden
+{}
+```
+</ResponseExample>
+
+Retrieves all verified and pending email addresses for the authenticated user.
+
+**GET** `/users/verified-emails`
+
+**Authentication:** Required (Bearer token via Privy)
+
+### Response Fields
+
+<ResponseField name="id" type="string" required>
+  Unique identifier for the email record
+</ResponseField>
+
+<ResponseField name="user_id" type="string" required>
+  User's DID
+</ResponseField>
+
+<ResponseField name="email" type="string" required>
+  Email address
+</ResponseField>
+
+<ResponseField name="status" type="string" required>
+  Verification status: `verified`, `pending`, or `expired`
+</ResponseField>
+
+<ResponseField name="verified_at" type="string | null">
+  ISO 8601 timestamp when email was verified
+</ResponseField>
+
+<ResponseField name="verification_sent_at" type="string | null">
+  ISO 8601 timestamp when verification email was sent
+</ResponseField>
+
+<ResponseField name="verification_token_expires_at" type="string | null">
+  ISO 8601 timestamp when verification token expires (typically 30 minutes)
+</ResponseField>
+
+<ResponseField name="created_at" type="string" required>
+  ISO 8601 timestamp of record creation
+</ResponseField>
+
+<ResponseField name="updated_at" type="string" required>
+  ISO 8601 timestamp of last update
+</ResponseField>
+
+---
+
+## Request Email Verification
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sfluv.org/users/verified-emails \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "user@example.com"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 Created
+{
+  "id": "email_abc123",
+  "user_id": "did:privy:user123",
+  "email": "user@example.com",
+  "status": "pending",
+  "verified_at": null,
+  "verification_sent_at": "2024-03-15T10:00:00Z",
+  "verification_token_expires_at": "2024-03-15T10:30:00Z",
+  "created_at": "2024-03-15T10:00:00Z",
+  "updated_at": "2024-03-15T10:00:00Z"
+}
+```
+
+```json 400 Bad Request
+"email is required"
+```
+
+```json 409 Conflict
+"email already verified"
+```
+
+```json 403 Forbidden
+{}
+```
+</ResponseExample>
+
+Initiates email verification by creating a verification record and sending a verification email with a token.
+
+**POST** `/users/verified-emails`
+
+**Authentication:** Required (Bearer token via Privy)
+
+### Request Body
+
+<ParamField body="email" type="string" required>
+  Email address to verify
+</ParamField>
+
+### Response
+
+Returns the created email verification record with `pending` status. A verification email is sent to the provided address containing a link with a verification token that expires in 30 minutes.
+
+---
+
+## Resend Email Verification
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sfluv.org/users/verified-emails/email_abc123/resend \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "id": "email_abc123",
+  "user_id": "did:privy:user123",
+  "email": "user@example.com",
+  "status": "pending",
+  "verified_at": null,
+  "verification_sent_at": "2024-03-15T10:45:00Z",
+  "verification_token_expires_at": "2024-03-15T11:15:00Z",
+  "created_at": "2024-03-15T10:00:00Z",
+  "updated_at": "2024-03-15T10:45:00Z"
+}
+```
+
+```json 404 Not Found
+"email verification record not found"
+```
+
+```json 409 Conflict
+"email already verified"
+```
+</ResponseExample>
+
+Resends the verification email for a pending email verification record.
+
+**POST** `/users/verified-emails/{email_id}/resend`
+
+**Authentication:** Required (Bearer token via Privy)
+
+### Path Parameters
+
+<ParamField path="email_id" type="string" required>
+  The ID of the email verification record
+</ParamField>
+
+### Response
+
+Returns the updated email verification record with new `verification_sent_at` and `verification_token_expires_at` timestamps. A new verification email is sent.
+
+---
+
+## Verify Email Token
+
+<RequestExample>
+```bash cURL (Query Parameter)
+curl -X POST https://api.sfluv.org/users/verified-emails/verify?token=abc123xyz \
+  -H "Content-Type: application/json"
+```
+
+```bash cURL (Request Body)
+curl -X POST https://api.sfluv.org/users/verified-emails/verify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "token": "abc123xyz"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "id": "email_abc123",
+  "user_id": "did:privy:user123",
+  "email": "user@example.com",
+  "status": "verified",
+  "verified_at": "2024-03-15T10:15:00Z",
+  "verification_sent_at": "2024-03-15T10:00:00Z",
+  "verification_token_expires_at": null,
+  "created_at": "2024-03-15T10:00:00Z",
+  "updated_at": "2024-03-15T10:15:00Z"
+}
+```
+
+```json 400 Bad Request
+"token is required"
+```
+
+```json 404 Not Found
+"invalid or already verified token"
+```
+
+```json 410 Gone
+"verification token has expired"
+```
+</ResponseExample>
+
+Verifies an email address using the token from the verification email.
+
+**POST** `/users/verified-emails/verify`
+
+**Authentication:** Not required (public endpoint)
+
+### Request Parameters
+
+Token can be provided via query parameter OR request body (query parameter takes precedence):
+
+<ParamField query="token" type="string">
+  Verification token from email link
+</ParamField>
+
+<ParamField body="token" type="string">
+  Verification token (if not provided as query parameter)
+</ParamField>
+
+### Response
+
+Returns the updated email verification record with `verified` status and `verified_at` timestamp.
+
+---
+
+## Error Responses
+
+All endpoints may return the following error responses:
+
+<ResponseField name="400 Bad Request">
+  Invalid request format or parameters
+</ResponseField>
+
+<ResponseField name="403 Forbidden">
+  Missing or invalid authentication token
+</ResponseField>
+
+<ResponseField name="404 Not Found">
+  Requested resource not found
+</ResponseField>
+
+<ResponseField name="409 Conflict">
+  Resource conflict (e.g., email already verified)
+</ResponseField>
+
+<ResponseField name="410 Gone">
+  Resource has expired (e.g., verification token)
+</ResponseField>
+
+<ResponseField name="500 Internal Server Error">
+  Server-side error occurred
+</ResponseField>

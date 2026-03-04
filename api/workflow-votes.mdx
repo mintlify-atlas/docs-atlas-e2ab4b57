@@ -1,0 +1,499 @@
+---
+title: "Workflow Votes"
+description: "Vote on workflow proposals and manage voting workflows"
+---
+
+## Overview
+
+Workflow voting is the community governance mechanism in SFLUV. Voters review pending workflow proposals and approve or deny them based on merit, budget allocation, and community needs.
+
+### Voting Process
+
+1. **Proposal Submission** - Proposer creates workflow → status `pending`
+2. **Quorum** - 50% of voters must participate
+3. **Countdown** - 24 hours after quorum reached
+4. **Early Finalization** - If >50% of total voter body agrees before countdown
+5. **Decision** - Workflow becomes `approved` or `rejected`
+
+### Vote Calculation Logic
+
+```typescript
+// Quorum: 50% of total voters
+quorum_threshold = Math.ceil(total_voters * 0.5)
+
+// Quorum reached?
+quorum_reached = votes_cast >= quorum_threshold
+
+// Countdown starts
+if (quorum_reached && !quorum_reached_at) {
+  quorum_reached_at = now()
+  finalize_at = now() + 24_hours
+}
+
+// Early finalization check (after quorum)
+if (quorum_reached) {
+  majority_threshold = Math.ceil(total_voters * 0.5)
+  if (approve_votes > majority_threshold) {
+    decision = "approve"
+    finalized_at = now()
+  } else if (deny_votes > majority_threshold) {
+    decision = "deny"
+    finalized_at = now()
+  }
+}
+
+// Countdown expiry
+if (now() >= finalize_at && !finalized_at) {
+  decision = approve_votes > deny_votes ? "approve" : "deny"
+  finalized_at = now()
+}
+
+// Approval budget check
+if (decision == "approve") {
+  // Check if faucet has enough balance for 1 week of workflow requirement
+  if (unallocated_balance < weekly_requirement) {
+    decision = "deny"  // blocked by insufficient funds
+  }
+}
+```
+
+---
+
+## Get Voter Workflows
+
+<RequestExample>
+```bash cURL
+curl https://api.sfluv.com/voters/workflows \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+[
+  {
+    "id": "workflow_abc123",
+    "series_id": "series_xyz789",
+    "proposer_id": "did:privy:proposer456",
+    "title": "Weekly Park Cleanup",
+    "description": "Remove litter and maintain park grounds",
+    "recurrence": "weekly",
+    "start_at": 1710496800,
+    "status": "pending",
+    "total_bounty": 150000000000000000000,
+    "weekly_bounty_requirement": 150000000000000000000,
+    "supervisor_required": true,
+    "supervisor_title": "DPW Supervisor",
+    "supervisor_organization": "Department of Public Works",
+    "roles": [...],
+    "steps": [...],
+    "votes": {
+      "approve": 4,
+      "deny": 1,
+      "votes_cast": 5,
+      "total_voters": 10,
+      "quorum_reached": true,
+      "quorum_threshold": 5,
+      "quorum_reached_at": 1710425000,
+      "finalize_at": 1710511400,
+      "my_decision": "approve"
+    }
+  },
+  {
+    "id": "workflow_def456",
+    "title": "Community Garden Planting",
+    "status": "pending",
+    "total_bounty": 200000000000000000000,
+    "votes": {
+      "approve": 2,
+      "deny": 0,
+      "votes_cast": 2,
+      "total_voters": 10,
+      "quorum_reached": false,
+      "quorum_threshold": 5
+    }
+  }
+]
+```
+</ResponseExample>
+
+**Endpoint:** `GET /voters/workflows`
+
+**Auth:** Voter role required
+
+**Description:** Returns all pending workflow proposals awaiting votes. The endpoint:
+- Expires proposals pending over 14 days (status → `expired`)
+- Evaluates vote state and checks faucet balance for approval eligibility
+- Includes authenticated voter's decision in `votes.my_decision`
+- Sends outcome emails if workflow transitions from pending to approved/rejected
+
+**Response:** Array of `Workflow` objects with status `pending`
+
+---
+
+## Vote on Workflow
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sfluv.com/workflows/workflow_abc123/votes \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "decision": "approve",
+    "comment": "Great initiative for community health"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "id": "workflow_abc123",
+  "title": "Weekly Park Cleanup",
+  "status": "approved",
+  "vote_decision": "approve",
+  "vote_finalized_at": 1710425000,
+  "vote_finalized_by_user_id": null,
+  "votes": {
+    "approve": 6,
+    "deny": 1,
+    "votes_cast": 7,
+    "total_voters": 10,
+    "quorum_reached": true,
+    "quorum_threshold": 5,
+    "quorum_reached_at": 1710425000,
+    "finalize_at": 1710511400,
+    "finalized_at": 1710425000,
+    "decision": "approve",
+    "my_decision": "approve"
+  },
+  "roles": [...],
+  "steps": [...]
+}
+```
+</ResponseExample>
+
+**Endpoint:** `POST /workflows/{workflow_id}/votes`
+
+**Auth:** Voter role required
+
+**Path Parameters:**
+
+<ParamField path="workflow_id" type="string" required>
+  Workflow UUID
+</ParamField>
+
+**Request Body:**
+
+<ParamField body="decision" type="string" required>
+  Vote decision: `approve` or `deny`
+</ParamField>
+
+<ParamField body="comment" type="string">
+  Optional comment explaining the vote
+</ParamField>
+
+**Response Behavior:**
+- Records vote in database
+- Evaluates vote state immediately:
+  - Checks if quorum reached (≥50% of voters)
+  - Checks if early finalization possible (>50% majority)
+  - Validates faucet balance if workflow would be approved
+- Updates workflow status if finalized
+- Sends proposer notification email if workflow approved/rejected
+- Returns updated workflow with current vote counts
+
+**Response Codes:**
+- `200` - Vote recorded successfully
+- `400` - Invalid decision value
+- `404` - Workflow not found
+- `409` - Workflow no longer pending (returned with current workflow state)
+- `500` - Server error
+
+---
+
+## Admin Force Approve Workflow
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sfluv.com/admin/workflows/workflow_abc123/force-approve \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-Admin-Key: YOUR_ADMIN_KEY"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "id": "workflow_abc123",
+  "title": "Weekly Park Cleanup",
+  "status": "approved",
+  "vote_decision": "admin_approve",
+  "vote_finalized_at": 1710425000,
+  "vote_finalized_by_user_id": "did:privy:admin999",
+  "votes": {
+    "approve": 2,
+    "deny": 1,
+    "votes_cast": 3,
+    "total_voters": 10,
+    "quorum_reached": false,
+    "quorum_threshold": 5,
+    "finalized_at": 1710425000,
+    "decision": "admin_approve"
+  }
+}
+```
+</ResponseExample>
+
+**Endpoint:** `POST /admin/workflows/{workflow_id}/force-approve`
+
+**Auth:** Admin role required
+
+**Path Parameters:**
+
+<ParamField path="workflow_id" type="string" required>
+  Workflow UUID
+</ParamField>
+
+**Description:** 
+- Bypasses normal voting process to immediately approve a workflow
+- Sets `vote_decision: "admin_approve"` (distinct from voter approval)
+- Still validates faucet balance (will fail if insufficient funds)
+- Sends proposer notification email
+
+**Response Codes:**
+- `200` - Workflow force approved
+- `404` - Workflow not found
+- `409` - Workflow no longer pending, or insufficient faucet balance
+- `403` - Not authenticated as admin
+- `500` - Server error
+
+---
+
+## Workflow Deletion Proposals
+
+Approved or in-progress workflows cannot be directly deleted. Instead, voters must create and vote on deletion proposals.
+
+### Create Deletion Proposal
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sfluv.com/proposers/workflow-deletion-proposals \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "workflow_id": "workflow_abc123",
+    "target_type": "workflow",
+    "reason": "Workflow requirements have changed due to park renovation"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 201 Created
+{
+  "id": "deletion_proposal_xyz789",
+  "target_type": "workflow",
+  "target_workflow_id": "workflow_abc123",
+  "target_workflow_title": "Weekly Park Cleanup",
+  "target_series_id": "series_xyz789",
+  "reason": "Workflow requirements have changed due to park renovation",
+  "status": "pending",
+  "requested_by_user_id": "did:privy:proposer456",
+  "created_at": 1710425000,
+  "updated_at": 1710425000,
+  "votes": {
+    "approve": 0,
+    "deny": 0,
+    "votes_cast": 0,
+    "total_voters": 10,
+    "quorum_reached": false,
+    "quorum_threshold": 5
+  }
+}
+```
+</ResponseExample>
+
+**Endpoint:** `POST /proposers/workflow-deletion-proposals` or `POST /voters/workflow-deletion-proposals`
+
+**Auth:** Proposer or Voter role required
+
+**Request Body:**
+
+<ParamField body="workflow_id" type="string" required>
+  Workflow UUID to delete
+</ParamField>
+
+<ParamField body="target_type" type="string" required>
+  Deletion scope: `workflow` (single instance) or `series` (all recurring instances)
+</ParamField>
+
+<ParamField body="reason" type="string">
+  Explanation for deletion request
+</ParamField>
+
+**Restrictions:**
+- Proposers can only create proposals for their own workflows
+- Cannot create proposals for workflows that are already `deleted` or `paid_out`
+- Only one pending proposal per workflow/series allowed
+
+**Response Codes:**
+- `201` - Deletion proposal created
+- `400` - Invalid target type, workflow not found, or duplicate proposal exists
+- `403` - Not authorized to delete workflow (not owner)
+- `404` - Workflow not found
+- `500` - Server error
+
+---
+
+### Get Deletion Proposals
+
+<RequestExample>
+```bash cURL
+curl https://api.sfluv.com/voters/workflow-deletion-proposals \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+[
+  {
+    "id": "deletion_proposal_xyz789",
+    "target_type": "workflow",
+    "target_workflow_id": "workflow_abc123",
+    "target_workflow_title": "Weekly Park Cleanup",
+    "reason": "Workflow requirements have changed",
+    "status": "pending",
+    "requested_by_user_id": "did:privy:proposer456",
+    "votes": {
+      "approve": 3,
+      "deny": 1,
+      "votes_cast": 4,
+      "total_voters": 10,
+      "quorum_reached": false,
+      "quorum_threshold": 5,
+      "my_decision": "approve"
+    },
+    "created_at": 1710425000,
+    "updated_at": 1710425100
+  }
+]
+```
+</ResponseExample>
+
+**Endpoint:** `GET /voters/workflow-deletion-proposals`
+
+**Auth:** Voter role required
+
+**Response:** Array of `WorkflowDeletionProposal` objects with status `pending`
+
+---
+
+### Vote on Deletion Proposal
+
+<RequestExample>
+```bash cURL
+curl -X POST https://api.sfluv.com/workflow-deletion-proposals/deletion_proposal_xyz789/votes \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "decision": "approve",
+    "comment": "Agreed, park is under renovation"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json 200 OK
+{
+  "id": "deletion_proposal_xyz789",
+  "status": "approved",
+  "vote_decision": "approve",
+  "vote_finalized_at": 1710425200,
+  "votes": {
+    "approve": 6,
+    "deny": 1,
+    "votes_cast": 7,
+    "total_voters": 10,
+    "quorum_reached": true,
+    "quorum_threshold": 5,
+    "decision": "approve",
+    "my_decision": "approve"
+  }
+}
+```
+</ResponseExample>
+
+**Endpoint:** `POST /workflow-deletion-proposals/{proposal_id}/votes`
+
+**Auth:** Voter role required
+
+**Path Parameters:**
+
+<ParamField path="proposal_id" type="string" required>
+  Deletion proposal UUID
+</ParamField>
+
+**Request Body:**
+
+<ParamField body="decision" type="string" required>
+  Vote decision: `approve` or `deny`
+</ParamField>
+
+<ParamField body="comment" type="string">
+  Optional comment
+</ParamField>
+
+**Response Behavior:**
+- Same voting logic as workflow proposals (quorum, countdown, early finalization)
+- If approved: target workflow(s) status → `deleted`
+- If denied: proposal closed, workflow(s) remain active
+
+**Response Codes:**
+- `200` - Vote recorded
+- `400` - Invalid decision
+- `404` - Proposal not found
+- `409` - Proposal no longer pending
+- `500` - Server error
+
+---
+
+## Schema Reference
+
+### WorkflowDeletionProposal Object
+
+```typescript
+interface WorkflowDeletionProposal {
+  id: string
+  target_type: "workflow" | "series"
+  target_workflow_id?: string | null
+  target_workflow_title?: string | null
+  target_series_id?: string | null
+  reason: string
+  status: "pending" | "approved" | "denied" | "expired"
+  requested_by_user_id: string
+  vote_quorum_reached_at?: number | null
+  vote_finalize_at?: number | null
+  vote_finalized_at?: number | null
+  vote_finalized_by_user_id?: string | null
+  vote_decision?: "approve" | "deny" | "admin_approve" | null
+  created_at: number
+  updated_at: number
+  votes: WorkflowVotes
+}
+```
+
+### Vote Decision Types
+
+- `approve` - Voted yes (standard voter)
+- `deny` - Voted no (standard voter)
+- `admin_approve` - Force approved by admin (bypasses voting)
+
+---
+
+## Related Endpoints
+
+- [Workflows](/api/workflows) - Create and view workflows
+- [Voting Guide](/guides/voters) - How to vote on proposals
+- [Workflows API](/api/workflows) - Workflow management

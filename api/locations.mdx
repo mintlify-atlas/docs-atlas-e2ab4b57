@@ -1,0 +1,252 @@
+---
+title: "Locations API"
+description: "Merchant location management endpoints"
+---
+
+## Create Location
+
+<ParamField path="POST /locations" type="endpoint">
+  Create a new merchant location for review.
+</ParamField>
+
+**Authentication:** Required (Bearer token)
+
+**Request Body:**
+
+```json
+{
+  "name": "Coffee Shop",
+  "description": "Best coffee in SF",
+  "type": "cafe",
+  "street": "123 Market St",
+  "city": "San Francisco",
+  "state": "CA",
+  "zip": "94103",
+  "lat": 37.7749,
+  "lng": -122.4194,
+  "phone": "+1-415-555-0100",
+  "email": "info@coffeeshop.com",
+  "admin_email": "admin@coffeeshop.com",
+  "admin_phone": "+1-415-555-0101",
+  "website": "https://coffeeshop.com",
+  "image_url": "https://example.com/image.jpg",
+  "google_id": "ChIJd8BlQ2BZwokRjMKxO0q0nYM",
+  "maps_page": "https://maps.google.com/?cid=123",
+  "opening_hours": ["Mon-Fri: 7am-6pm", "Sat-Sun: 8am-5pm"],
+  "contact_firstname": "John",
+  "contact_lastname": "Doe",
+  "contact_phone": "+1-415-555-0102",
+  "pos_system": "Square",
+  "sole_proprietorship": "yes",
+  "tipping_policy": "pooled",
+  "tipping_division": "equal",
+  "table_coverage": "full",
+  "service_stations": 3,
+  "tablet_model": "iPad",
+  "messaging_service": "sms",
+  "reference": "Found via partner"
+}
+```
+
+**Response:** `201 Created`
+
+```json
+"success"
+```
+
+An email notification is sent to the merchant admin for review.
+
+---
+
+## Get Location by ID
+
+<ParamField path="GET /locations/:id" type="endpoint">
+  Retrieve a single location by ID.
+</ParamField>
+
+**Authentication:** None
+
+**Response:** `200 OK`
+
+```json
+{
+  "location": {
+    "id": 1,
+    "google_id": "ChIJd8BlQ2BZwokRjMKxO0q0nYM",
+    "owner_id": "did:key:z6Mk...",
+    "name": "Coffee Shop",
+    "description": "Best coffee in SF",
+    "type": "cafe",
+    "approval": true,
+    "street": "123 Market St",
+    "city": "San Francisco",
+    "state": "CA",
+    "zip": "94103",
+    "lat": 37.7749,
+    "lng": -122.4194,
+    "phone": "+1-415-555-0100",
+    "email": "info@coffeeshop.com",
+    "admin_email": "admin@coffeeshop.com",
+    "admin_phone": "+1-415-555-0101",
+    "website": "https://coffeeshop.com",
+    "image_url": "https://example.com/image.jpg",
+    "rating": 4.5,
+    "maps_page": "https://maps.google.com/?cid=123",
+    "opening_hours": ["Mon-Fri: 7am-6pm", "Sat-Sun: 8am-5pm"],
+    "contact_firstname": "John",
+    "contact_lastname": "Doe",
+    "contact_phone": "+1-415-555-0102",
+    "pos_system": "Square",
+    "sole_proprietorship": "yes",
+    "tipping_policy": "pooled",
+    "tipping_division": "equal",
+    "table_coverage": "full",
+    "service_stations": 3,
+    "tablet_model": "iPad",
+    "messaging_service": "sms",
+    "reference": "Found via partner"
+  }
+}
+```
+
+---
+
+## List Locations
+
+<ParamField path="GET /locations" type="endpoint">
+  Retrieve paginated list of approved locations.
+</ParamField>
+
+**Authentication:** None
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | integer | 0 | Page number |
+| `count` | integer | 1000 | Items per page |
+
+**Response:** `200 OK`
+
+```json
+{
+  "locations": [
+    {
+      "id": 1,
+      "name": "Coffee Shop",
+      "approval": true,
+      // ... full location object
+    }
+  ]
+}
+```
+
+---
+
+## Get User Locations
+
+<ParamField path="GET /locations/user" type="endpoint">
+  Retrieve all locations owned by the authenticated user.
+</ParamField>
+
+**Authentication:** Required (Bearer token)
+
+**Response:** `200 OK`
+
+```json
+{
+  "locations": [
+    {
+      "id": 1,
+      "owner_id": "did:key:z6Mk...",
+      "name": "Coffee Shop",
+      "approval": false,
+      // ... full location object
+    }
+  ]
+}
+```
+
+---
+
+## Update Location
+
+<ParamField path="PUT /locations" type="endpoint">
+  Update an existing location owned by the authenticated user.
+</ParamField>
+
+**Authentication:** Required (Bearer token)
+
+**Request Body:**
+
+Same schema as Create Location, but include the `id` field:
+
+```json
+{
+  "id": 1,
+  "name": "Updated Coffee Shop",
+  "description": "Best coffee in SF - now with pastries!",
+  // ... other fields
+}
+```
+
+**Response:** `201 Created`
+
+When approval status changes to `true`, a confirmation email is sent to the merchant.
+
+---
+
+## Admin: Get All Locations
+
+<ParamField path="GET /admin/locations" type="endpoint">
+  Retrieve all locations including unapproved ones (admin only).
+</ParamField>
+
+**Authentication:** Required (Admin role or X-Admin-Key header)
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `page` | integer | 0 | Page number |
+| `count` | integer | 1000 | Items per page |
+
+**Response:** `200 OK`
+
+```json
+{
+  "locations": [
+    {
+      "id": 1,
+      "owner_id": "did:key:z6Mk...",
+      "name": "Coffee Shop",
+      "approval": null,
+      // ... full location object
+    }
+  ]
+}
+```
+
+---
+
+## Admin: Update Location Approval
+
+<ParamField path="PUT /admin/locations" type="endpoint">
+  Approve or reject a merchant location (admin only).
+</ParamField>
+
+**Authentication:** Required (Admin role or X-Admin-Key header)
+
+**Request Body:**
+
+```json
+{
+  "id": 1,
+  "approval": true,
+  // ... other fields to update
+}
+```
+
+**Response:** `201 Created`
+
+An approval email is sent to the merchant contact when `approval` is set to `true`.

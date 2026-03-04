@@ -1,122 +1,174 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "SFLUV",
+  "theme": "palm",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#6366f1",
+    "light": "#818cf8",
+    "dark": "#4f46e5"
   },
   "favicon": "/favicon.svg",
-  "navigation": {
-    "tabs": [
-      {
-        "tab": "Guides",
-        "groups": [
-          {
-            "group": "Getting started",
-            "pages": [
-              "index",
-              "quickstart",
-              "development"
-            ]
-          },
-          {
-            "group": "Customization",
-            "pages": [
-              "essentials/settings",
-              "essentials/navigation"
-            ]
-          },
-          {
-            "group": "Writing content",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "API reference",
-        "groups": [
-          {
-            "group": "API documentation",
-            "pages": [
-              "api-reference/introduction"
-            ]
-          },
-          {
-            "group": "Endpoint examples",
-            "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
-            ]
-          }
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
   "logo": {
     "light": "/logo/light.svg",
     "dark": "/logo/dark.svg"
   },
   "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
     "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "type": "github",
+      "href": "https://github.com/sfluv/app"
     }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "github": "https://github.com/sfluv/app"
     }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/workflows",
+              "concepts/roles",
+              "concepts/credentials",
+              "concepts/voting",
+              "concepts/affiliates"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/proposers",
+              "guides/improvers",
+              "guides/voters",
+              "guides/issuers",
+              "guides/merchants",
+              "guides/affiliates"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/workflow-builder",
+              "features/calendar",
+              "features/contacts",
+              "features/w9-compliance",
+              "features/token-unwrapping"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/overview",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "User Management",
+            "pages": [
+              "api/users",
+              "api/wallets",
+              "api/contacts"
+            ]
+          },
+          {
+            "group": "Workflows",
+            "pages": [
+              "api/workflows",
+              "api/workflow-steps",
+              "api/workflow-templates",
+              "api/workflow-votes"
+            ]
+          },
+          {
+            "group": "Roles & Credentials",
+            "pages": [
+              "api/proposers",
+              "api/improvers",
+              "api/issuers",
+              "api/credentials"
+            ]
+          },
+          {
+            "group": "Locations",
+            "pages": [
+              "api/locations"
+            ]
+          },
+          {
+            "group": "Affiliates",
+            "pages": [
+              "api/affiliates",
+              "api/affiliate-events"
+            ]
+          },
+          {
+            "group": "Compliance",
+            "pages": [
+              "api/w9",
+              "api/unwrap"
+            ]
+          },
+          {
+            "group": "Blockchain Integration",
+            "pages": [
+              "api/ponder"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Setup",
+            "pages": [
+              "dev/setup",
+              "dev/environment",
+              "dev/database"
+            ]
+          },
+          {
+            "group": "Backend",
+            "pages": [
+              "dev/backend-overview",
+              "dev/handlers",
+              "dev/middleware"
+            ]
+          },
+          {
+            "group": "Frontend",
+            "pages": [
+              "dev/frontend-overview",
+              "dev/context",
+              "dev/components"
+            ]
+          },
+          {
+            "group": "Testing",
+            "pages": [
+              "dev/testing",
+              "dev/anvil-testing"
+            ]
+          }
+        ]
+      }
+    ]
   }
 }
