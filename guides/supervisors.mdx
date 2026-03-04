@@ -1,0 +1,247 @@
+---
+title: "Supervisor guide"
+description: "Learn how to oversee workflows, export data, and manage rewards as a supervisor"
+---
+
+## Overview
+
+Supervisors in SFLUV are responsible for overseeing workflows assigned to specific roles. They can view workflow progress, export data for reporting, and manage their rewards account. Supervisors are typically assigned to workflows by proposers when creating workflow roles.
+
+## Requesting Supervisor Status
+
+<Steps>
+  <Step title="Submit Supervisor Request">
+    Navigate to **Settings** → **Role Management** and select **Request Supervisor Status**.
+    
+    Provide your organization or team affiliation if applicable.
+  </Step>
+  
+  <Step title="Wait for Admin Approval">
+    An admin must approve your supervisor request.
+    
+    You'll receive an email notification once your status is approved.
+  </Step>
+  
+  <Step title="Access Supervisor Dashboard">
+    Once approved, navigate to `/supervisor` to access your supervisor dashboard.
+  </Step>
+</Steps>
+
+**API Endpoint**: `POST /supervisors/request`
+
+## Viewing Assigned Workflows
+
+Supervisors can view workflows where they are assigned as a supervisor for specific roles.
+
+<Steps>
+  <Step title="Access Your Workflows">
+    Navigate to `/supervisor` or use the API:
+    
+    ```bash
+    curl -X GET https://api.sfluv.com/supervisors/workflows \
+      -H "Authorization: Bearer YOUR_JWT_TOKEN"
+    ```
+  </Step>
+  
+  <Step title="Review Workflow Details">
+    For each workflow, you can see:
+    - Workflow title and description
+    - Assigned roles and steps
+    - Current status and progress
+    - Improver assignments and completion status
+    - Timestamps for key events
+  </Step>
+  
+  <Step title="Monitor Step Completion">
+    Track which steps have been:
+    - Claimed by improvers
+    - Started (in progress)
+    - Completed
+    - Paid out
+  </Step>
+</Steps>
+
+## Exporting Workflow Data
+
+Supervisors can export workflow data for reporting and analysis.
+
+<Steps>
+  <Step title="Request Data Export">
+    Use the export endpoint to generate workflow reports:
+    
+    ```bash
+    curl -X POST https://api.sfluv.com/supervisors/workflows/export \
+      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "workflow_id": "workflow-uuid",
+        "format": "csv"
+      }'
+    ```
+  </Step>
+  
+  <Step title="Download Export File">
+    The API returns a downloadable file containing:
+    - Workflow metadata
+    - Step details and completion status
+    - Improver assignments
+    - Timestamps and bounty information
+    - Work item submissions
+  </Step>
+  
+  <Step title="Analyze Data">
+    Use the exported data for:
+    - Performance reporting
+    - Budget tracking
+    - Completion rate analysis
+    - Improver productivity metrics
+  </Step>
+</Steps>
+
+**Supported Formats**: CSV, JSON, Excel
+
+## Managing Rewards Account
+
+Supervisors may receive bounties when assigned as supervisors to workflow roles. You can manage your primary rewards account.
+
+<Steps>
+  <Step title="Set Primary Rewards Account">
+    Navigate to **Settings** → **Rewards** or use the API:
+    
+    ```bash
+    curl -X PUT https://api.sfluv.com/supervisors/primary-rewards-account \
+      -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "wallet_id": "your-wallet-uuid"
+      }'
+    ```
+  </Step>
+  
+  <Step title="Verify Account Setup">
+    Ensure the wallet is:
+    - Connected to your SFLUV account
+    - Verified and active
+    - Capable of receiving SFLuv tokens
+  </Step>
+</Steps>
+
+## Supervisor Role in Workflows
+
+### Role Assignment
+
+When proposers create workflows, they can assign a supervisor to specific roles:
+
+```typescript
+{
+  "role_title": "Community Cleaner",
+  "bounty": "1000000000000000000",  // 1 SFLuv
+  "supervisor_title": "DPW Supervisor",
+  "supervisor_bounty": "200000000000000000"  // 0.2 SFLuv
+}
+```
+
+### Supervisor Responsibilities
+
+- **Oversight**: Monitor assigned workflows and improver performance
+- **Reporting**: Export data for stakeholders and grant funders
+- **Quality Assurance**: Review work item submissions (photos, responses)
+- **Communication**: Coordinate with improvers and proposers
+- **Documentation**: Maintain records of workflow completion
+
+<Note>
+Supervisors do NOT approve or reject workflow proposals. That responsibility belongs to voters.
+</Note>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Regular Monitoring">
+    Check your supervisor dashboard daily to stay updated on workflow progress.
+    
+    Set up notifications for:
+    - New workflow assignments
+    - Step completions
+    - Issues requiring attention
+  </Accordion>
+  
+  <Accordion title="Data Export Schedule">
+    Export workflow data regularly for record-keeping:
+    - Weekly exports for active workflows
+    - Final exports upon workflow completion
+    - Monthly summary reports for stakeholders
+  </Accordion>
+  
+  <Accordion title="Communication">
+    Maintain open communication channels with:
+    - Improvers completing workflow steps
+    - Proposers who created the workflow
+    - Admins for escalations
+  </Accordion>
+  
+  <Accordion title="Quality Standards">
+    Establish clear expectations for work quality:
+    - Review photo submissions for completeness
+    - Verify written responses meet requirements
+    - Provide feedback to improvers when needed
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Cannot See Assigned Workflows">
+    **Solution**: Ensure you have been approved as a supervisor and that proposers have assigned you to specific workflow roles.
+    
+    Check:
+    - Your supervisor status is active
+    - Workflows exist with your supervisor assignment
+    - You're logged in with the correct account
+  </Accordion>
+  
+  <Accordion title="Export Failed">
+    **Solution**: Verify the workflow ID is correct and you have access to that workflow.
+    
+    Common issues:
+    - Invalid workflow ID
+    - Workflow not assigned to you
+    - Export format not supported
+  </Accordion>
+  
+  <Accordion title="Not Receiving Bounties">
+    **Solution**: Check your primary rewards account is set correctly.
+    
+    Steps:
+    1. Verify wallet is connected
+    2. Confirm rewards account is set
+    3. Check workflow step status is `paid_out`
+    4. Contact admin if payment is missing
+  </Accordion>
+</AccordionGroup>
+
+## API Endpoints
+
+### Supervisor Role Management
+
+- `POST /supervisors/request` - Request supervisor status
+- `GET /supervisors/approved` - List approved supervisors (authenticated users)
+
+### Workflow Management
+
+- `GET /supervisors/workflows` - Get workflows where you are assigned as supervisor
+- `POST /supervisors/workflows/export` - Export workflow data
+
+### Rewards Management
+
+- `PUT /supervisors/primary-rewards-account` - Set primary rewards wallet
+
+### Admin Endpoints
+
+- `GET /admin/supervisors` - List all supervisors (admin)
+- `PUT /admin/supervisors` - Update supervisor settings (admin)
+
+## Related Resources
+
+- [Proposer Guide](/guides/proposers) - How supervisors are assigned to workflow roles
+- [Improver Guide](/guides/improvers) - How improvers complete supervised workflows
+- [Workflows Concept](/concepts/workflows) - Understanding workflow structure
