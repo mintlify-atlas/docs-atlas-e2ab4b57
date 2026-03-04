@@ -1,0 +1,184 @@
+{
+  "projectType": "saas",
+  "projectName": "SFLUV",
+  "projectDescription": "A local currency governance platform built on Berachain enabling community-driven workflows, merchant payments, and credential-based role management.",
+  "theme": "palm",
+  "primaryColor": "#6366f1",
+  "lightColor": "#818cf8",
+  "darkColor": "#4f46e5",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/workflows",
+              "concepts/roles",
+              "concepts/credentials",
+              "concepts/voting",
+              "concepts/affiliates"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/proposers",
+              "guides/improvers",
+              "guides/voters",
+              "guides/issuers",
+              "guides/merchants",
+              "guides/affiliates"
+            ]
+          },
+          {
+            "group": "Features",
+            "pages": [
+              "features/workflow-builder",
+              "features/calendar",
+              "features/contacts",
+              "features/w9-compliance",
+              "features/token-unwrapping"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/overview",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "User Management",
+            "pages": [
+              "api/users",
+              "api/wallets",
+              "api/contacts"
+            ]
+          },
+          {
+            "group": "Workflows",
+            "pages": [
+              "api/workflows",
+              "api/workflow-steps",
+              "api/workflow-templates",
+              "api/workflow-votes"
+            ]
+          },
+          {
+            "group": "Roles & Credentials",
+            "pages": [
+              "api/proposers",
+              "api/improvers",
+              "api/issuers",
+              "api/credentials"
+            ]
+          },
+          {
+            "group": "Locations",
+            "pages": [
+              "api/locations"
+            ]
+          },
+          {
+            "group": "Affiliates",
+            "pages": [
+              "api/affiliates",
+              "api/affiliate-events"
+            ]
+          },
+          {
+            "group": "Compliance",
+            "pages": [
+              "api/w9",
+              "api/unwrap"
+            ]
+          },
+          {
+            "group": "Blockchain Integration",
+            "pages": [
+              "api/ponder"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Setup",
+            "pages": [
+              "dev/setup",
+              "dev/environment",
+              "dev/database"
+            ]
+          },
+          {
+            "group": "Backend",
+            "pages": [
+              "dev/backend-overview",
+              "dev/handlers",
+              "dev/middleware"
+            ]
+          },
+          {
+            "group": "Frontend",
+            "pages": [
+              "dev/frontend-overview",
+              "dev/context",
+              "dev/components"
+            ]
+          },
+          {
+            "group": "Testing",
+            "pages": [
+              "dev/testing",
+              "dev/anvil-testing"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Multi-role governance system with proposers, improvers, voters, and issuers",
+    "Workflow builder with sequential steps and bounty management",
+    "Voting system with quorum requirements and 24-hour countdown",
+    "Credential-based role requirements for workflow steps",
+    "Merchant location mapping and payment integration",
+    "W9 compliance workflow with webhook integration",
+    "Token wrapping/unwrapping functionality",
+    "Affiliate event management and payout scheduling",
+    "Blockchain indexing via Ponder for ERC20 events",
+    "Smart account integration with Privy authentication"
+  ],
+  "publicApiSurface": [
+    "POST /users - Create user account",
+    "GET /users - Get authenticated user info",
+    "POST /proposers/workflows - Create workflow proposal",
+    "GET /improvers/workflows - Get available workflows for improvers",
+    "POST /improvers/workflows/{id}/steps/{step_id}/claim - Claim workflow step",
+    "POST /voters/workflows/{id}/vote - Vote on workflow proposal",
+    "POST /issuers/credentials - Grant credentials to users",
+    "GET /locations - Get merchant locations",
+    "POST /affiliates/events - Create affiliate event",
+    "GET /admin/users - Admin: Get all users",
+    "POST /w9/webhook - Webhook: Submit W9 compliance form",
+    "POST /unwrap - Request token unwrapping",
+    "POST /redeem - Redeem faucet QR code"
+  ]
+}
